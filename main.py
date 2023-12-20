@@ -142,7 +142,7 @@ player, level_x, level_y = generate_level(load_level('map.txt'))
 def start_screen():
     intro_text = []
 
-    fon = pygame.transform.scale(load_image('title.png'), (WIDTH, HEIGHT))
+    fon = pygame.transform.scale(load_image('title.jpg'), (WIDTH, HEIGHT))
     screen.blit(fon, (0, 0))
     font = pygame.font.Font(None, 30)
     text_coord = 50
