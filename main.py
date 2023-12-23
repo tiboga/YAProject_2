@@ -8,7 +8,9 @@ pygame.init()
 size = WIDTH, HEIGHT = 500, 500
 screen = pygame.display.set_mode(size)
 speed_x = 4
-change = (0,0)
+speed_y = 20
+change = (0, 0)
+direction_of_movement = ''
 
 
 class Tile(pygame.sprite.Sprite):
@@ -19,17 +21,67 @@ class Tile(pygame.sprite.Sprite):
             tile_width * pos_x, tile_height * pos_y)
 
 
+class Plat(pygame.sprite.Sprite):
+    def __init__(self, tile_type, pos_x, pos_y):
+        super().__init__(plat_group, tiles_group, all_sprites)
+        self.image = tile_images[tile_type]
+        self.rect = self.image.get_rect().move(
+            tile_width * pos_x, tile_height * pos_y)
+
+
 class Player(pygame.sprite.Sprite):
-    def __init__(self, pos_x=WIDTH // 2, pos_y=HEIGHT // 2):
+    def __init__(self, pos_x=WIDTH // 2, pos_y=HEIGHT // 2, animation=None):
         super().__init__(player_group, all_sprites)
+        self.animations = {'idle': animation[0], 'walk': animation[1]}
         self.image = player_image
         self.rect = self.image.get_rect().move(
-            tile_width * pos_x + 15, tile_height * pos_y + 5)
-        self.pos = (250, 250)
+            pos_x, pos_y)
+        self.pos = (pos_x, pos_y)
+        self.move(pos_x, pos_y)
+        for elem in self.animations.values():
+            elem.pos = self.pos
 
     def move(self, x, y):
         self.pos = (x, y)
         self.rect = self.image.get_rect().move(x, y)
+
+    def animate(self, key):
+        self.animations[key].update()
+        if direction_of_movement == 'left':
+            self.image = pygame.transform.flip(self.animations[key].re_img(),1, 0)
+        else:
+            self.image = self.animations[key].re_img()
+
+
+class AnimatedSprite(pygame.sprite.Sprite):
+    def __init__(self, sheet, columns, rows, x, y):
+        super().__init__(all_sprites)
+        self.frames = []
+        self.cut_sheet(sheet, columns, rows)
+        self.cur_frame = 0
+        self.image = self.frames[self.cur_frame]
+        self.rect = self.image.get_rect().move(x, y)
+        self.pos = (x, y)
+
+    def move(self, x, y):
+        self.pos = (x, y)
+        self.rect = self.image.get_rect().move(x, y)
+
+    def cut_sheet(self, sheet, columns, rows):
+        self.rect = pygame.Rect(0, 0, sheet.get_width() // columns, sheet.get_height() // rows)
+        for j in range(rows):
+            for i in range(columns):
+                frame_location = (self.rect.w * i, self.rect.h * j)
+                time_rect = pygame.transform.scale(sheet.subsurface(pygame.Rect(frame_location, self.rect.size)),
+                                                   (90, 90))
+                self.frames.append(pygame.transform.scale(time_rect, (75, 75)))
+
+    def re_img(self):
+        return self.image
+
+    def update(self):
+        self.cur_frame = (self.cur_frame + 1) % len(self.frames)
+        self.image = self.frames[self.cur_frame]
 
 
 class Camera:
@@ -41,24 +93,29 @@ class Camera:
         obj.rect.x += self.dx
         obj.rect.y += self.dy
 
-    def update(self, player):
+    def reapply(self, obj):
+        obj.rect.x += -self.dx
+        obj.rect.y += -self.dy
+
+    def update(self):
         global change
         if change[0] != 0 or change[1] != 0:
             self.dx = -change[0] * 1.5
             self.dy = -change[1] * 1.5
         change = (0, 0)
-        if self.dx != 0:
+        if self.dx != 0 or self.dy != 0:
             print(self.dx, self.dy)
 
 
-
-def load_image(name, colorkey=None):
+def load_image(name, colorkey=None, scale=False):
     fullname = os.path.join('data', name)
     if not os.path.isfile(fullname):
         print(f"Файл с изображением '{fullname}' не найден")
         sys.exit()
 
     image = pygame.image.load(fullname)
+    if scale:
+        image = pygame.transform.scale(image, (50, 50))
     if colorkey is not None:
         image = image.convert()
         if colorkey == -1:
@@ -70,9 +127,15 @@ def load_image(name, colorkey=None):
 
 
 def move(player, movement):
+    global direction_of_movement
     global change
+    global speed_y
     x, y = player.pos
-    # if movement == 'jump':
+    if movement == 'jump':
+        change = (0, speed_y)
+        speed_y -= 4
+        if speed_y == -20:
+            speed_y = 20
     if movement == 'up':
         if y > 50:
             change = (0, -speed_x)
@@ -82,9 +145,11 @@ def move(player, movement):
     elif movement == 'left':
         if x > 50:
             change = (-speed_x, 0)
+            direction_of_movement = 'left'
     elif movement == 'right':
         if x < level_x - 90:
             change = (speed_x, 0)
+            direction_of_movement = 'right'
 
 
 def generate_level(level):
@@ -94,10 +159,8 @@ def generate_level(level):
             if level[y][x] == '.':
                 Tile('empty', x, y)
             elif level[y][x] == '#':
-                Tile('wall', x, y)
-    new_player = Player(250, 250)
-    new_player.move(250, 250)
-    # вернем игрока, а также размер поля в клетках
+                Plat('wall', x, y)
+    new_player = Player(WIDTH // 2, HEIGHT // 2, [player_idle, player_walk])
     return new_player, WIDTH, HEIGHT
 
 
@@ -121,16 +184,19 @@ tile_images = {
     'wall': load_image('box.png'),
     'empty': load_image('texture_fon.png')
 }
-player_image = load_image('Woodcutter.png')
-
+all_sprites = pygame.sprite.Group()
+tiles_group = pygame.sprite.Group()
+player_group = pygame.sprite.Group()
+plat_group = pygame.sprite.Group()
+player_idle = AnimatedSprite(load_image('Woodcutter_idle.png'), 4, 1, WIDTH // 2, HEIGHT // 2)
+player_image = player_idle.frames[0]
+player_walk = AnimatedSprite(load_image('Woodcutter_walk.png'), 6, 1, WIDTH // 2, HEIGHT // 2)
 tile_width = tile_height = 50
 
 player = None
 
 # группы спрайтов
-all_sprites = pygame.sprite.Group()
-tiles_group = pygame.sprite.Group()
-player_group = pygame.sprite.Group()
+
 
 level_map = load_level('map.txt')
 
@@ -167,28 +233,42 @@ def start_screen():
 if __name__ == '__main__':
     start_screen()
     camera = Camera()
-    Counter_ticks = False
     counter = 0
     running = True
     current_press = ''
-    jump = False
+    reapp = False
     while running:
+        if change != (0, 0):
+            print(change)
+        already_do = False
         if current_press == 'w':
-            if counter == 2:
+            if counter % 2 == 0:
                 move(player, 'up')
-                counter = 0
+                already_do = True
+                if counter % 5 == 0:
+                    player.animate('walk')
         if current_press == 's':
-            if counter == 2:
+            if counter % 2 == 0:
                 move(player, 'down')
-                counter = 0
+                already_do = True
+                if counter % 5 == 0:
+                    player.animate('walk')
         if current_press == 'a':
-            if counter == 2:
+            if counter % 2 == 0:
                 move(player, 'left')
-                counter = 0
+                already_do = True
+                if counter % 5 == 0:
+                    player.animate('walk')
         if current_press == 'd':
-            if counter == 2:
+            if counter % 2 == 0:
                 move(player, 'right')
-                counter = 0
+                already_do = True
+                if counter % 5 == 0:
+                    player.animate('walk')
+        if current_press == 'j':
+            if counter % 5 == 0:
+                move(player, 'jump')
+                already_do = True
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -196,41 +276,52 @@ if __name__ == '__main__':
                 if event.key == pygame.K_w:
                     move(player, 'up')
                     current_press = 'w'
-                    counter = 0
-                    Counter_ticks = True
+                    already_do = True
+                    player.animate('walk')
                 elif event.key == pygame.K_s:
                     move(player, 'down')
                     current_press = 's'
-                    counter = 0
-                    Counter_ticks = True
+                    already_do = True
+                    player.animate('walk')
                 elif event.key == pygame.K_a:
                     move(player, 'left')
                     current_press = 'a'
-                    counter = 0
-                    Counter_ticks = True
+                    already_do = True
+                    player.animate('walk')
                 elif event.key == pygame.K_d:
                     move(player, 'right')
                     current_press = 'd'
-                    counter = 0
-                    Counter_ticks = True
+                    already_do = True
+                    player.animate('walk')
 
                 elif event.key == pygame.K_SPACE:
-                    move(player, 'jump', speed=20)
+                    move(player, 'jump')
+                    current_press = 'j'
+                    already_do = True
+                    player.animate('walk')
 
             elif event.type == pygame.KEYUP:
                 current_press = ''
                 counter = 0
                 Counter_ticks = False
-        if Counter_ticks:
-            counter += 1
+        counter += 1
 
         # изменяем ракурс камеры
-        camera.update(player)
+        camera.update()
         # обновляем положение всех спрайтов
         for sprite in tiles_group:
             camera.apply(sprite)
+            if pygame.sprite.spritecollideany(player, plat_group):
+                reapp = True
+        if reapp:
+            for sprite in tiles_group:
+                camera.reapply(sprite)
+            reapp = False
         camera.dx = 0
         camera.dy = 0
+        if counter % 15 == 0 and not already_do:
+            player.animate('idle')
+
         screen.fill('black')
         tiles_group.draw(screen)
         player_group.draw(screen)
