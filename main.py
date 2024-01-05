@@ -8,13 +8,16 @@ pygame.init()
 size = WIDTH, HEIGHT = 500, 500
 screen = pygame.display.set_mode(size)
 speed_x = 4
-speed_y = 20
+speed_y = 4
 change = (0, 0)
 direction_of_movement = ''
+
 direction_of_movement_enemy = ''
 direction_of_movement_boss = ''
 enemy_attack_ready = False
 health = 0  # счётчик ударов. 3удара = -1hp
+
+moving = ''
 
 
 class Tile(pygame.sprite.Sprite):
@@ -29,6 +32,7 @@ class Plat(pygame.sprite.Sprite):
     def __init__(self, tile_type, pos_x, pos_y):
         super().__init__(plat_group, tiles_group, all_sprites)
         self.image = tile_images[tile_type]
+        self.mask = pygame.mask.from_surface(self.image)
         self.rect = self.image.get_rect().move(
             tile_width * pos_x, tile_height * pos_y)
 
@@ -85,13 +89,18 @@ class Boss(pygame.sprite.Sprite):
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos_x=WIDTH // 2, pos_y=HEIGHT // 2, animation=None):
         super().__init__(player_group, all_sprites)
-        self.animations = {'idle': animation[0], 'walk': animation[1]}
+        self.animations = {'idle': animation[0], 'walk': animation[1], 'jump': animation[2], 'attack1': animation[3]}
         self.image = player_image
         self.rect = self.image.get_rect().move(
             pos_x, pos_y)
         self.pos = (pos_x, pos_y)
         self.move(pos_x, pos_y)
+
         self.lives = 3
+
+        self.need_left_move_for_flip = True
+        self.need_right_move_for_flip = False
+
         for elem in self.animations.values():
             elem.pos = self.pos
 
@@ -102,9 +111,17 @@ class Player(pygame.sprite.Sprite):
     def animate(self, key):
         self.animations[key].update()
         if direction_of_movement == 'left':
-            self.image = pygame.transform.flip(self.animations[key].re_img(), 1, 0)
+            self.image = pygame.transform.flip(self.animations[key].re_img(),1, 0)
+            if self.need_left_move_for_flip:
+                self.move(self.rect.x - 24, self.rect.y)
+                self.need_left_move_for_flip = False
+                self.need_right_move_for_flip = True
         else:
             self.image = self.animations[key].re_img()
+            if self.need_right_move_for_flip:
+                self.move(self.rect.x + 24, self.rect.y)
+                self.need_right_move_for_flip = False
+                self.need_left_move_for_flip = True
 
 
 class AnimatedSprite(pygame.sprite.Sprite):
@@ -155,8 +172,8 @@ class Camera:
     def update(self):
         global change
         if change[0] != 0 or change[1] != 0:
-            self.dx = -change[0] * 1.5
-            self.dy = -change[1] * 1.5
+            self.dx = -change[0]
+            self.dy = -change[1]
         change = (0, 0)
         # if self.dx != 0 or self.dy != 0:
         #     print(self.dx, self.dy)
@@ -186,11 +203,6 @@ def move(player, movement):
     global change
     global speed_y
     x, y = player.pos
-    if movement == 'jump':
-        change = (0, speed_y)
-        speed_y -= 4
-        if speed_y == -20:
-            speed_y = 20
     if movement == 'up':
         if y > 50:
             change = (0, -speed_x)
@@ -205,6 +217,15 @@ def move(player, movement):
         if x < level_x - 90:
             change = (speed_x, 0)
             direction_of_movement = 'right'
+    elif movement == 'fall':
+        if speed_y < 4:
+            speed_y += 1
+        if moving == 'right':
+            change = (speed_x - 1, speed_y)
+        elif moving == 'left':
+            change = (-speed_x + 1, speed_y)
+        else:
+            change = (0, speed_y)
 
 
 def generate_level(level):
@@ -221,7 +242,8 @@ def generate_level(level):
             elif level[y][x] == '*':
                 Tile('empty', x, y)
                 new_boss = Boss(x, y, [boss_idle, boss_shoot])
-    new_player = Player(WIDTH // 2, HEIGHT // 2, [player_idle, player_walk])
+
+    new_player = Player(WIDTH // 2 - 50, HEIGHT // 2 - 50, [player_idle, player_walk, player_jump, player_attack])
     return new_player, new_enemy, new_boss, WIDTH, HEIGHT
 
 
@@ -295,6 +317,9 @@ boss_group = pygame.sprite.Group()
 player_idle = AnimatedSprite(load_image('Woodcutter_idle.png'), 4, 1, WIDTH // 2, HEIGHT // 2)
 player_image = player_idle.frames[0]
 player_walk = AnimatedSprite(load_image('Woodcutter_walk.png'), 6, 1, WIDTH // 2, HEIGHT // 2)
+player_jump = AnimatedSprite(load_image('Woodcutter_jump.png'), 6, 1, WIDTH // 2, HEIGHT // 2)
+player_attack = AnimatedSprite(load_image('Woodcutter_attack1.png'), 6, 1, WIDTH // 2, HEIGHT // 2)
+tile_width = tile_height = 50
 
 enemy_idle = AnimatedSprite(load_image("Enemy_movement/Enemy_idle.png"), 4, 1, 0, 0)
 enemy_image = enemy_idle.frames[0]
@@ -352,6 +377,8 @@ if __name__ == '__main__':
     enemy_anim_count = 0
     running = True
     current_press = ''
+    attack = ''
+    counter_atack_anim = 0
     reapp = False
 
     while running:
@@ -362,69 +389,90 @@ if __name__ == '__main__':
 
         if change != (0, 0):
             print(change)
+
+        move(player, 'fall')
+
         already_do = False
-        if current_press == 'w':
-            if counter % 2 == 0:
-                move(player, 'up')
-                already_do = True
-                if counter % 5 == 0:
-                    player.animate('walk')
-        if current_press == 's':
-            if counter % 2 == 0:
-                move(player, 'down')
-                already_do = True
-                if counter % 5 == 0:
-                    player.animate('walk')
-        if current_press == 'a':
-            if counter % 2 == 0:
-                move(player, 'left')
-                already_do = True
-                if counter % 5 == 0:
-                    player.animate('walk')
-        if current_press == 'd':
-            if counter % 2 == 0:
-                move(player, 'right')
-                already_do = True
-                if counter % 5 == 0:
-                    player.animate('walk')
-        if current_press == 'j':
-            if counter % 5 == 0:
-                move(player, 'jump')
-                already_do = True
+        if attack == '1':
+            already_do = True
+            if counter % 10 == 0 and counter_atack_anim != 6:
+                player.animate('attack1')
+                counter_atack_anim += 1
+            if counter_atack_anim == 6:
+                attack = ''
+        if not already_do:
+            if current_press == 'w':
+                if counter % 2 == 0:
+                    move(player, 'up')
+                    already_do = True
+                    if counter % 5 == 0:
+                        player.animate('walk')
+            if current_press == 's':
+                if counter % 2 == 0:
+                    move(player, 'down')
+                    already_do = True
+                    if counter % 5 == 0:
+                        player.animate('walk')
+            if current_press == 'a':
+                if counter % 2 == 0:
+                    move(player, 'left')
+                    already_do = True
+                    if counter % 5 == 0:
+                        player.animate('walk')
+            if current_press == 'd':
+                if counter % 2 == 0:
+                    move(player, 'right')
+                    already_do = True
+                    if counter % 5 == 0:
+                        player.animate('walk')
+            if current_press == 'j':
+                if counter % 15 == 0:
+                    player.animate('jump')
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.KEYDOWN:
+            if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_w:
                     move(player, 'up')
                     current_press = 'w'
                     already_do = True
                     player.animate('walk')
-                elif event.key == pygame.K_s:
+                if event.key == pygame.K_s:
                     move(player, 'down')
                     current_press = 's'
                     already_do = True
                     player.animate('walk')
-                elif event.key == pygame.K_a:
+                if event.key == pygame.K_a:
                     move(player, 'left')
                     current_press = 'a'
+                    moving = 'left'
                     already_do = True
                     player.animate('walk')
-                elif event.key == pygame.K_d:
+                if event.key == pygame.K_d:
                     move(player, 'right')
                     current_press = 'd'
+                    moving = 'right'
                     already_do = True
                     player.animate('walk')
 
-                elif event.key == pygame.K_SPACE:
-                    move(player, 'jump')
+                if event.key == pygame.K_SPACE:
+                    speed_y = -16
                     current_press = 'j'
                     already_do = True
-                    player.animate('walk')
-            elif event.type == pygame.KEYUP:
+                    player.animate('jump')
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    player.animate('attack1')
+                    attack = '1'
+                    counter_atack_anim = 0
+            if event.type == pygame.KEYUP:
                 current_press = ''
+                moving = ''
                 counter = 0
                 Counter_ticks = False
+            if event.type == pygame.MOUSEBUTTONUP:
+                if counter_atack_anim > 5:
+                    attack = ''
         counter += 1
 
         # изменяем ракурс камеры
@@ -432,15 +480,19 @@ if __name__ == '__main__':
         # обновляем положение всех спрайтов
         for sprite in tiles_group:
             camera.apply(sprite)
-            if pygame.sprite.spritecollideany(player, plat_group):
+        for elem in plat_group:
+        # if pygame.sprite.spritecollideany(player, plat_group):
+            if pygame.sprite.collide_mask(elem, player):
                 reapp = True
+            if pygame.sprite.collide_mask(elem, player) and counter_atack_anim < 6:
+                pass
         if reapp:
             for sprite in tiles_group:
                 camera.reapply(sprite)
             reapp = False
         camera.dx = 0
         camera.dy = 0
-        if counter % 15 == 0 and not already_do:
+        if counter % 15 == 0 and (not already_do or counter_atack_anim == 6):
             player.animate('idle')
         screen.fill('black')
         tiles_group.draw(screen)
@@ -450,5 +502,3 @@ if __name__ == '__main__':
 
         pygame.display.flip()
         clock.tick(100)
-        if change[0] != 0:
-            print(change)
