@@ -11,6 +11,12 @@ speed_x = 4
 speed_y = 4
 change = (0, 0)
 direction_of_movement = ''
+
+direction_of_movement_enemy = ''
+direction_of_movement_boss = ''
+enemy_attack_ready = False
+health = 0  # счётчик ударов. 3удара = -1hp
+
 moving = ''
 
 
@@ -31,6 +37,55 @@ class Plat(pygame.sprite.Sprite):
             tile_width * pos_x, tile_height * pos_y)
 
 
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y, animation=None):
+        super().__init__(enemy_group, tiles_group, all_sprites)
+        self.animations = {'idle': animation[0], 'walk': animation[1], 'attack': animation[2]}
+        self.image = enemy_image
+        self.rect = self.image.get_rect().move(
+            tile_width * pos_x, tile_height * pos_y)
+        self.pos = (pos_x, pos_y)
+        self.move(pos_x * tile_width, pos_y * tile_height)
+        for elem in self.animations.values():
+            elem.pos = self.pos
+
+    def move(self, x, y):
+        self.pos = (x, y)
+        self.rect = self.image.get_rect().move(x, y)
+
+    def animate(self, key):
+        self.animations[key].update()
+        if direction_of_movement_enemy == 'left':
+            self.image = pygame.transform.flip(self.animations[key].re_img(), 1, 0)
+        else:
+            self.image = self.animations[key].re_img()
+
+
+class Boss(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y, animation=None):
+        super().__init__(boss_group, tiles_group, all_sprites)
+        self.animations = {'idle': animation[0], 'walk': animation[1]}
+        self.image = boss_image
+        self.rect = self.image.get_rect().move(
+            tile_width * pos_x, tile_height * pos_y)
+        self.move(pos_x * tile_width, pos_y * tile_height)
+
+        self.pos = (pos_x, pos_y)
+        for elem in self.animations.values():
+            elem.pos = self.pos
+
+    def move(self, x, y):
+        self.pos = (x, y)
+        self.rect = self.image.get_rect().move(x, y)
+
+    def animate(self, key):
+        self.animations[key].update()
+        if direction_of_movement_boss == 'left':
+            self.image = pygame.transform.flip(self.animations[key].re_img(), 1, 0)
+        else:
+            self.image = self.animations[key].re_img()
+
+
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos_x=WIDTH // 2, pos_y=HEIGHT // 2, animation=None):
         super().__init__(player_group, all_sprites)
@@ -40,8 +95,12 @@ class Player(pygame.sprite.Sprite):
             pos_x, pos_y)
         self.pos = (pos_x, pos_y)
         self.move(pos_x, pos_y)
+
+        self.lives = 3
+
         self.need_left_move_for_flip = True
         self.need_right_move_for_flip = False
+
         for elem in self.animations.values():
             elem.pos = self.pos
 
@@ -108,6 +167,7 @@ class Camera:
     def reapply(self, obj):
         obj.rect.x += -self.dx
         obj.rect.y += -self.dy
+        print(obj.rect.x, obj.rect.y)
 
     def update(self):
         global change
@@ -115,6 +175,8 @@ class Camera:
             self.dx = -change[0]
             self.dy = -change[1]
         change = (0, 0)
+        # if self.dx != 0 or self.dy != 0:
+        #     print(self.dx, self.dy)
 
 
 def load_image(name, colorkey=None, scale=False):
@@ -167,15 +229,22 @@ def move(player, movement):
 
 
 def generate_level(level):
-    new_player, x, y = None, None, None
+    new_player, new_enemy, new_boss, x, y = None, None, None, None, None
     for y in range(len(level)):
         for x in range(len(level[y])):
             if level[y][x] == '.':
                 Tile('empty', x, y)
             elif level[y][x] == '#':
                 Plat('wall', x, y)
+            elif level[y][x] == '?':
+                Tile('empty', x, y)
+                new_enemy = Enemy(x, y, [enemy_idle, enemy_flight, enemy_attack])
+            elif level[y][x] == '*':
+                Tile('empty', x, y)
+                new_boss = Boss(x, y, [boss_idle, boss_shoot])
+
     new_player = Player(WIDTH // 2 - 50, HEIGHT // 2 - 50, [player_idle, player_walk, player_jump, player_attack])
-    return new_player, WIDTH, HEIGHT
+    return new_player, new_enemy, new_boss, WIDTH, HEIGHT
 
 
 def terminate():
@@ -194,14 +263,57 @@ def load_level(filename):
     return list(map(lambda x: x.ljust(max_width, '.'), level_map))
 
 
+def enemy_movement_attack():
+    global direction_of_movement_enemy
+    global enemy_attack_ready
+    global health
+    if enemy.rect[0] - player.rect[0] < 150:
+        if enemy.rect[0] - player.rect[0] >= 24:
+            enemy_attack_ready = False
+            direction_of_movement_enemy = ''
+            if counter % 10 == 0:
+                enemy.animate('walk')
+                enemy.rect[0] -= 4
+
+        else:
+            if player.rect[0] - enemy.rect[0] < 150:
+                if counter % 10 == 0:
+                    enemy.animate('walk')
+                    enemy_attack_ready = True
+                if player.rect[0] - enemy.rect[0] >= 44:
+                    if counter % 10 == 0:
+                        enemy.rect[0] += 4
+                    direction_of_movement_enemy = 'left'
+                    enemy_attack_ready = True
+            else:
+                if counter % 17 == 0:
+                    enemy.animate('idle')
+                    enemy_attack_ready = False
+    else:
+        if counter % 17 == 0:
+            enemy.animate('idle')
+            enemy_attack_ready = False
+
+    if enemy_attack_ready:
+        if counter % 17 == 0:
+            enemy.animate('attack')
+            health += 1
+            if health == 6:
+                player.lives -= 1
+                health = 0
+
+
 tile_images = {
     'wall': load_image('box.png'),
-    'empty': load_image('texture_fon.png')
+    'empty': load_image('grass.png')
 }
 all_sprites = pygame.sprite.Group()
 tiles_group = pygame.sprite.Group()
 player_group = pygame.sprite.Group()
 plat_group = pygame.sprite.Group()
+enemy_group = pygame.sprite.Group()
+boss_group = pygame.sprite.Group()
+
 player_idle = AnimatedSprite(load_image('Woodcutter_idle.png'), 4, 1, WIDTH // 2, HEIGHT // 2)
 player_image = player_idle.frames[0]
 player_walk = AnimatedSprite(load_image('Woodcutter_walk.png'), 6, 1, WIDTH // 2, HEIGHT // 2)
@@ -209,12 +321,26 @@ player_jump = AnimatedSprite(load_image('Woodcutter_jump.png'), 6, 1, WIDTH // 2
 player_attack = AnimatedSprite(load_image('Woodcutter_attack1.png'), 6, 1, WIDTH // 2, HEIGHT // 2)
 tile_width = tile_height = 50
 
-player = None
+enemy_idle = AnimatedSprite(load_image("Enemy_movement/Enemy_idle.png"), 4, 1, 0, 0)
+enemy_image = enemy_idle.frames[0]
+enemy_flight = AnimatedSprite(load_image("Enemy_movement/Enemy_walk.png"), 4, 1, 0, 0)
+enemy_attack = AnimatedSprite(load_image("Enemy_movement/Enemy_attack.png"), 4, 1, 0, 0)
 
+boss_idle = AnimatedSprite(load_image("Boss_movement/Boss_idle.png"), 4, 1, 0, 0)
+boss_image = boss_idle.frames[0]
+boss_shoot = AnimatedSprite(load_image("Boss_movement/Boss_shoot.png"), 3, 1, 0, 0)
+
+heart = pygame.image.load("data/Health.png")
+
+tile_width = tile_height = 50
+
+player = None
+enemy = None
+boss = None  # группы спрайтов
 
 level_map = load_level('map.txt')
 
-player, level_x, level_y = generate_level(load_level('map.txt'))
+player, enemy, boss, level_x, level_y = generate_level(load_level('map.txt'))
 
 
 def start_screen():
@@ -248,13 +374,24 @@ if __name__ == '__main__':
     start_screen()
     camera = Camera()
     counter = 0
+    enemy_anim_count = 0
     running = True
     current_press = ''
     attack = ''
     counter_atack_anim = 0
     reapp = False
+
     while running:
+        enemy_movement_attack()
+
+        if player.lives == 3:
+            screen.blit(heart, (100, 100))
+
+        if change != (0, 0):
+            print(change)
+
         move(player, 'fall')
+
         already_do = False
         if attack == '1':
             already_do = True
@@ -357,9 +494,11 @@ if __name__ == '__main__':
         camera.dy = 0
         if counter % 15 == 0 and (not already_do or counter_atack_anim == 6):
             player.animate('idle')
-
         screen.fill('black')
         tiles_group.draw(screen)
         player_group.draw(screen)
+        enemy_group.draw(screen)
+        boss_group.draw(screen)
+
         pygame.display.flip()
         clock.tick(100)
