@@ -246,15 +246,15 @@ def generate_level(level):
     for y in range(len(level)):
         for x in range(len(level[y])):
             if level[y][x] == '.':
-                Tile('empty', x-3, y-3)
+                Tile('empty', x - 3, y - 3)
             elif level[y][x] == '#':
-                Plat('wall', x-3, y-3)
+                Plat('wall', x - 3, y - 3)
             elif level[y][x] == '?':
-                Tile('empty', x-3, y-3)
-                new_enemy = Enemy( x-3, y-3, [enemy_idle, enemy_flight, enemy_attack])
+                Tile('empty', x - 3, y - 3)
+                new_enemy = Enemy(x - 3, y - 3, [enemy_idle, enemy_flight, enemy_attack])
             elif level[y][x] == '*':
-                Tile('empty', x-3, y-3)
-                new_boss = Boss( x-3, y-3, [boss_idle, boss_shoot])
+                Tile('empty', x - 3, y - 3)
+                new_boss = Boss(x - 3, y - 3, [boss_idle, boss_shoot])
 
     new_player = Player(WIDTH // 2 - 50, HEIGHT // 2 - 50, [player_idle, player_walk, player_jump, player_attack])
     return new_player, new_enemy, new_boss, WIDTH, HEIGHT
@@ -327,18 +327,18 @@ plat_group = pygame.sprite.Group()
 enemy_group = pygame.sprite.Group()
 boss_group = pygame.sprite.Group()
 button_group = pygame.sprite.Group()
-cursors = pygame.sprite.Group()
-technical_sprite = pygame.sprite.Group()
-
+cursors_group = pygame.sprite.Group()
+technical_sprite_group = pygame.sprite.Group()
+fon_group = pygame.sprite.Group()
 player_idle = AnimatedSprite(load_image('Woodcutter_idle.png'), 4, 1, WIDTH // 2, HEIGHT // 2, scaling=(65, 65))
 player_image = player_idle.frames[0]
 player_walk = AnimatedSprite(load_image('Woodcutter_walk.png'), 6, 1, WIDTH // 2, HEIGHT // 2, scaling=(65, 65))
 player_jump = AnimatedSprite(load_image('Woodcutter_jump.png'), 6, 1, WIDTH // 2, HEIGHT // 2, scaling=(65, 65))
 player_attack = AnimatedSprite(load_image('Woodcutter_attack1.png'), 6, 1, WIDTH // 2, HEIGHT // 2, scaling=(65, 65))
 tile_width = tile_height = 50
-
-button_play = AnimatedSprite(load_image('button_play_animation2.png'), 1, 2, WIDTH // 2 - 47, HEIGHT // 2 - 38,
-                             group=button_group, need_scale=True, scaling=(94, 75))
+fon = AnimatedSprite(load_image('fon_anim.png'), 1, 4, 0, 0, group=fon_group, need_scale=True, scaling=(WIDTH, HEIGHT))
+button_play = AnimatedSprite(load_image('button_anim.png'), 1, 2, WIDTH // 2 - 125, HEIGHT // 2 - 36,
+                             group=button_group, need_scale=True, scaling=(250, 73))
 
 enemy_idle = AnimatedSprite(load_image("Enemy_movement/Enemy_idle.png"), 4, 1, 0, 0)
 enemy_image = enemy_idle.frames[0]
@@ -352,16 +352,16 @@ heart = pygame.image.load("data/Health.png")
 level_map = load_level('map.txt')
 
 cursor = AnimatedSprite(load_image('cursor1_2.png'), 1, 1, pygame.mouse.get_pos()[0], pygame.mouse.get_pos()[1],
-                        need_scale=True, scaling=(40, 40), group=cursors)
+                        need_scale=True, scaling=(40, 40), group=cursors_group)
 double_cursor = AnimatedSprite(load_image('double_cursor.png'), 1, 1, pygame.mouse.get_pos()[0],
-                               pygame.mouse.get_pos()[1], group=technical_sprite, need_scale=False)
+                               pygame.mouse.get_pos()[1], group=technical_sprite_group, need_scale=False)
 player, enemy, boss, level_x, level_y = generate_level(load_level('map.txt'))
 
 
 def start_screen():
     pygame.mouse.set_visible(0)
     intro_text = []
-    fon = pygame.transform.scale(load_image('fon2.png'), (WIDTH, HEIGHT))
+    # fon = pygame.transform.scale(load_image('fon2.png'), (WIDTH, HEIGHT))
 
     font = pygame.font.Font(None, 30)
     text_coord = 50
@@ -373,9 +373,11 @@ def start_screen():
         intro_rect.x = 10
         text_coord += intro_rect.height
         screen.blit(string_rendered, intro_rect)
-
+    counter = 0
     while True:
+        counter += 1
         out = False
+        screen.fill((0, 0, 0))
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
@@ -386,16 +388,21 @@ def start_screen():
                     out = True
         cursor.move(pygame.mouse.get_pos()[0] - 6, pygame.mouse.get_pos()[1])
         double_cursor.move(pygame.mouse.get_pos()[0], pygame.mouse.get_pos()[1])
-        technical_sprite.draw(screen)
-        screen.blit(fon, (0, 0))
+        technical_sprite_group.draw(screen)
+        # screen.blit(fon, (0, 0))
+        fon_group.draw(screen)
         button_group.draw(screen)
-        if pygame.mouse.get_pos()[0] > 0 and pygame.mouse.get_pos()[1] > 0:
-            cursors.draw(screen)
+        if pygame.mouse.get_pos()[0] > 0 and pygame.mouse.get_pos()[1] > 0 and pygame.mouse.get_pos()[0] < WIDTH -1 and \
+                pygame.mouse.get_pos()[1] < HEIGHT -1 :
+            cursors_group.draw(screen)
         pygame.display.flip()
         if out:
             time.sleep(0.1)
             return
         clock.tick(FPS)
+        if counter == 100:
+            fon.update()
+            counter = 0
 
 
 if __name__ == '__main__':
