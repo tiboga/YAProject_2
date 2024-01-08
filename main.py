@@ -100,7 +100,7 @@ class Player(pygame.sprite.Sprite):
         self.pos = (pos_x, pos_y)
         self.move(pos_x, pos_y)
 
-        self.lives = 6
+        self.lives = 3
 
         self.need_left_move_for_flip = True
         self.need_right_move_for_flip = False
@@ -164,6 +164,13 @@ class AnimatedSprite(pygame.sprite.Sprite):
         self.image = self.frames[self.cur_frame]
 
 
+class Button(pygame.sprite.Sprite):
+    def __init__(self, x, y, image):
+        super().__init__(button_group)
+        self.image = image
+        self.rect = self.image.get_rect().move(x, y)
+        self.pos = (x, y)
+
 
 class Camera:
     def __init__(self):
@@ -177,7 +184,6 @@ class Camera:
     def reapply(self, obj):
         obj.rect.x += -self.dx
         obj.rect.y += -self.dy
-        print(obj.rect.x, obj.rect.y)
 
     def update(self):
         global change
@@ -248,10 +254,10 @@ def generate_level(level):
                 Plat('wall', x-3, y-3)
             elif level[y][x] == '?':
                 Tile('empty', x-3, y-3)
-                new_enemy = Enemy( x-3, y-3, [enemy_idle, enemy_flight, enemy_attack, enemy_die, enemy_hurt])
+                new_enemy = Enemy( x-3, y-3, [enemy_idle, enemy_flight, enemy_attack])
             elif level[y][x] == '*':
-                Tile('empty', x, y)
-                new_boss = Boss(x, y, [boss_idle, boss_damage, boss_die])
+                Tile('empty', x-3, y-3)
+                new_boss = Boss( x-3, y-3, [boss_idle, boss_shoot])
 
     new_player = Player(WIDTH // 2 - 50, HEIGHT // 2 - 50, [player_idle, player_walk, player_jump, player_attack])
     return new_player, new_enemy, new_boss, WIDTH, HEIGHT
@@ -307,7 +313,6 @@ def enemy_movement_attack():
     if enemy_attack_ready:
         if counter % 17 == 0:
             enemy.animate('attack')
-            player.animate("damage")
             health += 1
             if health == 6:
                 player.lives -= 1
@@ -328,7 +333,7 @@ button_group = pygame.sprite.Group()
 cursors = pygame.sprite.Group()
 technical_sprite = pygame.sprite.Group()
 
-player_idle = AnimatedSprite(load_image('Woodcutter_idle.png'), 4, 1, WIDTH // 2, HEIGHT // 2)
+player_idle = AnimatedSprite(load_image('Woodcutter_idle.png'), 4, 1, WIDTH // 2, HEIGHT // 2, scaling=(65, 65))
 player_image = player_idle.frames[0]
 player_walk = AnimatedSprite(load_image('Woodcutter_walk.png'), 6, 1, WIDTH // 2, HEIGHT // 2, scaling=(65, 65))
 player_jump = AnimatedSprite(load_image('Woodcutter_jump.png'), 6, 1, WIDTH // 2, HEIGHT // 2, scaling=(65, 65))
@@ -342,20 +347,11 @@ enemy_idle = AnimatedSprite(load_image("Enemy_movement/Enemy_idle.png"), 4, 1, 0
 enemy_image = enemy_idle.frames[0]
 enemy_flight = AnimatedSprite(load_image("Enemy_movement/Enemy_walk.png"), 4, 1, 0, 0)
 enemy_attack = AnimatedSprite(load_image("Enemy_movement/Enemy_attack.png"), 4, 1, 0, 0)
-enemy_die = AnimatedSprite(load_image("Enemy_movement/Enemy_die.png"), 4, 1, 0, 0)
-enemy_hurt = AnimatedSprite(load_image("Enemy_movement/Enemy_hurt.png"), 2, 1, 0, 0)
 
 boss_idle = AnimatedSprite(load_image("Boss_movement/Boss_idle.png"), 4, 1, 0, 0)
 boss_image = boss_idle.frames[0]
-boss_damage = AnimatedSprite(load_image("Boss_movement/Boss_hurt.png"), 2, 1, 0, 0)
-boss_die = AnimatedSprite(load_image("Boss_movement/Boss_die.png"), 6, 1, 0, 0)
-
-tile_width = tile_height = 50
-
-player = None
-enemy = None
-boss = None  # группы спрайтов
-
+boss_shoot = AnimatedSprite(load_image("Boss_movement/Boss_shoot.png"), 3, 1, 0, 0)
+heart = pygame.image.load("data/Health.png")
 level_map = load_level('map.txt')
 
 cursor = AnimatedSprite(load_image('cursor1_2.png'), 1, 1, pygame.mouse.get_pos()[0], pygame.mouse.get_pos()[1],
@@ -370,8 +366,6 @@ def start_screen():
     intro_text = []
     fon = pygame.transform.scale(load_image('fon2.png'), (WIDTH, HEIGHT))
 
-    fon = pygame.transform.scale(load_image('title.jpg'), (WIDTH, HEIGHT))
-    screen.blit(fon, (0, 0))
     font = pygame.font.Font(None, 30)
     text_coord = 50
     for line in intro_text:
@@ -412,31 +406,17 @@ if __name__ == '__main__':
     camera = Camera()
     counter = 0
     enemy_anim_count = 0
-    counter_death_anim = 0
     running = True
     current_press = ''
     attack = ''
     counter_atack_anim = 0
-    counter_death_anim_enemy = 0
     reapp = False
 
     while running:
-        if player.lives != 0:
-            if enemy.lives != 0:
-                enemy_movement_attack()
-            else:
-                if counter % 10 == 0 and counter_death_anim_enemy != 3:
-                    enemy.animate('die')
-                    counter_death_anim_enemy += 1
-        else:
-            if counter % 17 == 0:
-                enemy.animate('idle')
-            if counter % 10 == 0 and counter_death_anim != 6:
-                player.animate('die')
-                counter_death_anim += 1
+        enemy_movement_attack()
 
-        # if boss.lives != 0:
-        #     boss_movement_attack()
+        if player.lives == 3:
+            screen.blit(heart, (100, 100))
 
         if change != (0, 0):
             print(change)
@@ -516,12 +496,6 @@ if __name__ == '__main__':
                     player.animate('attack1')
                     attack = '1'
                     counter_atack_anim = 0
-
-                    if abs(player.rect[0] - enemy.rect[0]) <= 44 and abs(player.rect[1] - enemy.rect[1]) <= 4:
-
-                        enemy.animate('hurt')
-                        enemy.lives -= 1
-
             if event.type == pygame.KEYUP:
                 current_press = ''
                 moving = ''
@@ -556,6 +530,6 @@ if __name__ == '__main__':
         player_group.draw(screen)
         enemy_group.draw(screen)
         boss_group.draw(screen)
-        screen.blit(load_image(f"Hearts/Health_{player.lives}.png"), (0, 0))
+
         pygame.display.flip()
         clock.tick(100)
