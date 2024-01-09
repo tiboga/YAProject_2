@@ -15,7 +15,6 @@ direction_of_movement = ''
 direction_of_movement_enemy = ''
 direction_of_movement_boss = ''
 enemy_attack_ready = False
-game_over = False
 health = 0  # счётчик ударов. 3удара = -1hp
 
 moving = ''
@@ -181,7 +180,6 @@ class Camera:
     def reapply(self, obj):
         obj.rect.x += -self.dx
         obj.rect.y += -self.dy
-        # print(obj.rect.x, obj.rect.y)
 
     def update(self):
         global change
