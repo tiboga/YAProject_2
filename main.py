@@ -190,27 +190,29 @@ class Camera:
     def __init__(self):
         self.dx = 0
         self.dy = 0
+        self.fon_apply = False
+        self.fon_reapply = False
 
     def apply(self, obj):
         obj.pos = (obj.pos[0] + self.dx,
-        obj.pos[1] + self.dy)
+                   obj.pos[1] + self.dy)
         obj.rect.x += self.dx
         obj.rect.y += self.dy
 
     def reapply(self, obj):
         obj.pos = (obj.pos[0] - self.dx,
-        obj.pos[1] - self.dy)
+                   obj.pos[1] - self.dy)
         obj.rect.x += -self.dx
         obj.rect.y += -self.dy
 
     def update(self):
         global change
+        self.fon_apply = False
+        self.fon_reapply = False
         if change[0] != 0 or change[1] != 0:
             self.dx = -change[0]
             self.dy = -change[1]
         change = (0, 0)
-        # if self.dx != 0 or self.dy != 0:
-        #     print(self.dx, self.dy)
 
 
 class Portal(AnimatedSprite):
@@ -239,7 +241,6 @@ class NPC(AnimatedSprite):
         self.frames = self.frames[:]
 
 
-
 class Mushroom:
     pass
 
@@ -251,13 +252,26 @@ class Coins(AnimatedSprite):
         self.pos = x * tile_width, y * tile_height
         self.rect = self.image.get_rect().move(
             self.pos)
-        print(self.pos)
+
     def get(self):
         player.money += self.gold
 
     def move(self, x, y):
         self.pos = (x, y)
         self.rect = self.image.get_rect().move(x, y)
+
+
+class Fountain(AnimatedSprite):
+    def __init__(self, sheet, columns, rows, x, y, group=all_sprites, need_scale=True, scaling=(75, 75)):
+        super().__init__(sheet, columns, rows, x, y, group, need_scale, scaling)
+        self.pos = x * tile_width, y * tile_height
+        self.rect = self.image.get_rect().move(
+            self.pos)
+
+    def heal(self):
+        player.lives += 1
+
+
 def load_image(name, colorkey=None, scale=False):
     fullname = os.path.join('data', name)
     if not os.path.isfile(fullname):
@@ -334,9 +348,9 @@ def generate_level(level):
                           group=[npc_group, tiles_group], scaling=(100, 100))
             elif level[y][x] == 'M':
                 Tile('empty', x - sdv, y - sdv)
-                rand = random.choice([10, 15,20])
-                Coins(10, load_image('coins/coin_1_anim.png'), 2, 2, x - sdv, y-sdv + 0.4,
-                          group=[tiles_group, coins_group], scaling=(25, 25))
+                rand = random.choice([10, 15, 20])
+                Coins(10, load_image('coins/coin_1_anim.png'), 2, 2, x - sdv, y - sdv + 0.4,
+                      group=[tiles_group, coins_group], scaling=(25, 25))
     new_player = Player(player_pos[0], player_pos[1],
                         [player_idle, player_walk, player_jump, player_attack, player_damage, player_die, player_dead])
     return new_player, new_enemy, new_boss, WIDTH, HEIGHT
@@ -358,6 +372,7 @@ def load_level(filename):
         level_map = [line.strip() for line in mapFile]
     max_width = max(map(len, level_map))
     return list(level_map)
+    # return list(map(lambda x: x.ljust(max_width, '.'), level_map))
 
 
 def enemy_movement_attack():
@@ -429,6 +444,7 @@ def boss_movement_attack():
     if boss.rect[0] - player.rect[0] < 150:
         boss.attack()
 
+
 class Particle(pygame.sprite.Sprite):
     # сгенерируем частицы разного размера
     fire = [load_image("particle.png")]
@@ -464,6 +480,7 @@ tile_images = {
     'wall': load_image('box.png'),
     'empty': load_image('texture_fon.png')
 }
+fountain_group = pygame.sprite.Group()
 coins_group = pygame.sprite.Group()
 npc_group = pygame.sprite.Group()
 back_group = pygame.sprite.Group()
@@ -478,6 +495,8 @@ portal_group = pygame.sprite.Group()
 technical_sprite_group = pygame.sprite.Group()
 particle_group = pygame.sprite.Group()
 fon_group = pygame.sprite.Group()
+castle_group = pygame.sprite.Group()
+fon = AnimatedSprite(load_image('fon2.png'), 1, 1, HEIGHT * 2, -300, scaling=(1200 * 1.5, 680 * 1.5), group=[castle_group, tiles_group])
 player_idle = AnimatedSprite(load_image('Player_movement/Woodcutter_idle.png'), 4, 1, WIDTH // 2, HEIGHT // 2,
                              scaling=(65, 65))
 player_image = player_idle.frames[0]
@@ -495,7 +514,6 @@ player_die = AnimatedSprite(load_image('Player_movement/Woodcutter_death.png'), 
                             scaling=(65, 65))
 player_dead = AnimatedSprite(load_image('Player_movement/Woodcutter_dead.png'), 1, 1, WIDTH // 2, HEIGHT // 2,
                              scaling=(65, 65))
-tile_width = tile_height = 50
 fon = AnimatedSprite(load_image('fon_anim.png'), 1, 4, 0, 0, group=fon_group, need_scale=True, scaling=(WIDTH, HEIGHT))
 button_play = AnimatedSprite(load_image('button_anim.png'), 1, 2, WIDTH // 2 - 125, HEIGHT // 2 - 36,
                              group=button_group, need_scale=True, scaling=(250, 73))
@@ -511,13 +529,10 @@ boss_idle = AnimatedSprite(load_image("Boss_movement/Boss_idle.png"), 4, 1, 0, 0
 boss_image = boss_idle.frames[0]
 boss_damage = AnimatedSprite(load_image("Boss_movement/Boss_hurt.png"), 2, 1, 0, 0)
 boss_die = AnimatedSprite(load_image("Boss_movement/Boss_die.png"), 6, 1, 0, 0)
+fountain = AnimatedSprite(load_image('fountain/fountainanim2.png'), 1, 16, HEIGHT + 600, 200, scaling=(200, 200),
+                          group=[fountain_group, tiles_group])
 
 tile_width = tile_height = 50
-
-player = None
-enemy = None
-boss = None  # группы спрайтов
-
 level_map_1 = load_level('map.txt')
 level_map_2 = load_level('map2.txt')
 cursor = AnimatedSprite(load_image('cursor1_2.png'), 1, 1, pygame.mouse.get_pos()[0], pygame.mouse.get_pos()[1],
@@ -643,6 +658,9 @@ if __name__ == '__main__':
                 if event.key == pygame.K_w:
                     for elem in portal_group:
                         if pygame.sprite.collide_mask(elem, player):
+                            castle_group.empty()
+                            fountain_group.empty()
+                            coins_group.empty()
                             back_group.empty()
                             plat_group.empty()
                             portal_group.empty()
@@ -716,9 +734,12 @@ if __name__ == '__main__':
             player.animate('idle')
         screen.fill('black')
 
+        all_sprites.draw(screen)
+        castle_group.draw(screen)
         back_group.draw(screen)
         plat_group.draw(screen)
         portal_group.draw(screen)
+        fountain_group.draw(screen)
         npc_group.draw(screen)
         player_group.draw(screen)
         enemy_group.draw(screen)
@@ -735,5 +756,6 @@ if __name__ == '__main__':
         if counter % 10 == 0:
             npc_group.update()
             coins_group.update()
+            fountain_group.update()
         clock.tick(100)
         player_pos = player.pos
