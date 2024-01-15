@@ -141,7 +141,9 @@ class Boss(pygame.sprite.Sprite):
         self.rect = self.image.get_rect().move(
             tile_width * pos_x, tile_height * pos_y - 20)
         self.move(pos_x * tile_width, pos_y * tile_height - 20)
-        self.lives = 3
+
+        self.live = 3
+
         self.i = 1
         self.pos = (pos_x, pos_y)
         self.attack_x, self.attack_y = self.rect[0], self.rect[1] + 60
@@ -154,13 +156,13 @@ class Boss(pygame.sprite.Sprite):
 
     def attack(self):
         if counter % 20 == 0:
-            boss.animate('idle')
+            boss_s.animate('idle')
         self.attack_y = self.rect[1] + 40
-        global bullets
-        if boss.rect[0] - player.rect[0] < 250:
-            if counter % 10 == 0 and bullets == 0:
+
+        if boss_s.rect[0] - player.rect[0] < 250:
+            if counter % 10 == 0:
                 boss_attack.get_rect().move(self.attack_x, self.attack_y)
-                bullets += 1
+
             if self.attack_x < 0:
                 self.attack_x = self.rect[0]
                 self.i = 1
@@ -351,8 +353,8 @@ class Portal(AnimatedSprite):
         self.frames = self.frames[:-1]
 
     def teleport(self):
-        global player, enemy, boss, level_x, level_y
-        player, enemy, boss, level_x, level_y = generate_level(self.level)
+        global player, enemy, boss_s, mushroom, level_x, level_y
+        player, enemy, boss_s, mushroom, level_x, level_y = generate_level(self.level)
 
     def move(self, x, y):
         self.pos = (x, y)
@@ -366,10 +368,6 @@ class NPC(AnimatedSprite):
         self.rect = self.image.get_rect().move(
             x * tile_width, y * tile_height)
         self.frames = self.frames[:]
-
-
-class Mushroom:
-    pass
 
 
 class Coins(AnimatedSprite):
@@ -466,9 +464,9 @@ def generate_level(level):
                 new_boss = Boss(x - sdv, y - sdv, [boss_idle, boss_damage, boss_die])
             elif level[y][x] == ',':
                 Tile('empty', x - sdv, y - sdv)
-                new_mushroom = Mushroom(x, y, [mushroom_walk, mushroom_boom])
+                new_mushroom = Mushroom(x - sdv, y - sdv, [mushroom_walk, mushroom_boom])
                 Tile('empty', x - sdv, y - sdv)
-                new_boss = Boss(x - sdv, y - sdv, [boss_idle, boss_damage, boss_die])
+
             elif level[y][x] == 'P':
                 Tile('empty', x - sdv, y - sdv)
                 Portal(level_map_2, x - sdv, y - sdv - 1, load_image('portal.png'), 7, 6,
@@ -507,10 +505,42 @@ def load_level(filename):
     # return list(map(lambda x: x.ljust(max_width, '.'), level_map))
 
 
+class Particle(pygame.sprite.Sprite):
+    # сгенерируем частицы разного размера
+    fire = [load_image("particle.png")]
+    for scale in (2, 3, 4):
+        fire.append(pygame.transform.scale(fire[0], (scale, scale)))
+
+    def __init__(self, pos, dx, dy):
+        super().__init__(all_sprites, particle_group)
+        self.image = random.choice(self.fire)
+        self.rect = self.image.get_rect()
+        self.velocity = [dx, dy]
+        self.rect.x, self.rect.y = pos
+        self.gravity = gravity
+
+    def update(self):
+        self.velocity[1] += self.gravity
+        self.rect.x += self.velocity[0]
+        self.rect.y += self.velocity[1]
+        if self.rect.y > 422:
+            self.kill()
+
+
+def create_particles(position):
+    # количество создаваемых частиц
+    particle_count = 20
+    # возможные скорости
+    numbers = range(-5, 6)
+    for _ in range(particle_count):
+        Particle(position, random.choice(numbers), random.choice(numbers))
+
+
 tile_images = {
     'wall': load_image('box.png'),
     'empty': load_image('texture_fon.png')
 }
+
 fountain_group = pygame.sprite.Group()
 coins_group = pygame.sprite.Group()
 npc_group = pygame.sprite.Group()
@@ -527,7 +557,8 @@ technical_sprite_group = pygame.sprite.Group()
 particle_group = pygame.sprite.Group()
 fon_group = pygame.sprite.Group()
 castle_group = pygame.sprite.Group()
-fon = AnimatedSprite(load_image('fon2.png'), 1, 1, HEIGHT * 2, -300, scaling=(1200 * 1.5, 680 * 1.5), group=[castle_group, tiles_group])
+fon = AnimatedSprite(load_image('fon2.png'), 1, 1, HEIGHT * 2, -300, scaling=(1200 * 1.5, 680 * 1.5),
+                     group=[castle_group, tiles_group])
 player_idle = AnimatedSprite(load_image('Player_movement/Woodcutter_idle.png'), 4, 1, WIDTH // 2, HEIGHT // 2,
                              scaling=(65, 65))
 mushroom_group = pygame.sprite.Group()
@@ -578,7 +609,8 @@ cursor = AnimatedSprite(load_image('cursor1_2.png'), 1, 1, pygame.mouse.get_pos(
                         need_scale=True, scaling=(40, 40), group=cursors_group)
 double_cursor = AnimatedSprite(load_image('double_cursor.png'), 1, 1, pygame.mouse.get_pos()[0],
                                pygame.mouse.get_pos()[1], group=technical_sprite_group, need_scale=False)
-player, enemy, boss, level_x, level_y = generate_level(load_level('map.txt'))
+
+player, enemy, boss_s, mushroom, level_x, level_y = generate_level(load_level('map.txt'))
 
 
 def start_screen():
@@ -646,13 +678,14 @@ if __name__ == '__main__':
             for el in mushroom_group:
                 if el.lives > 0:
                     el.attack()
-            if boss.lives > 0:
-                boss.attack()
+            for el in boss_group:
+                if el.live > 0:
+                    el.attack()
 
-            else:
-                if counter % 10 == 0 and counter_death_anim_boss != 5:
-                    boss.animate('die')
-                    counter_death_anim_boss += 1
+                else:
+                    if counter % 10 == 0 and counter_death_anim_boss != 5:
+                        el.animate('die')
+                        counter_death_anim_boss += 1
 
             for elem in enemy_group:
                 if elem.lives > 0:
@@ -669,8 +702,8 @@ if __name__ == '__main__':
                     elem.animate('idle')
                 if counter % 10 == 0 and counter_death_anim != 5:
                     player.animate('die')
-
                     counter_death_anim += 1
+                    already_do = True
         for elem in enemy_group:
             if elem.lives == 0 and elem.rect[1] != 0:
                 if counter % 2 == 0:
@@ -680,8 +713,8 @@ if __name__ == '__main__':
             print(change)
 
         move(player, 'fall')
-
-        already_do = False
+        if player.lives > 0:
+            already_do = False
         if attack == '1':
             already_do = True
             if counter % 10 == 0 and counter_atack_anim != 6:
@@ -721,6 +754,7 @@ if __name__ == '__main__':
                             player_group.empty()
                             enemy_group.empty()
                             boss_group.empty()
+                            mushroom_group.empty()
                             npc_group.empty()
                             elem.teleport()
                 if event.key == pygame.K_s:
@@ -756,10 +790,10 @@ if __name__ == '__main__':
                                 player.rect[1] - element.rect[1]) <= 4 and element.lives > 0:
                             element.animate('hurt')
                             element.lives -= 1
-
-                    if abs(boss.rect[0] - player.rect[0]) <= 44 and boss.lives > 0:
-                        boss.animate('hurt')
-                        boss.lives -= 1
+                    for el in boss_group:
+                        if abs(el.rect[0] - player.rect[0]) <= 44 and el.live > 0:
+                            el.animate('hurt')
+                            el.live -= 1
 
             if event.type == pygame.KEYUP:
                 current_press = ''
@@ -809,8 +843,9 @@ if __name__ == '__main__':
         particle_group.update()
         screen.blit(load_image(f"Hearts/Health_{player.lives}.png"), (0, 0))
 
-        if boss.lives > 0:
-            screen.blit(boss_attack, (boss.attack_x, boss.attack_y))
+        for el in boss_group:
+            if el.live > 0:
+                screen.blit(boss_attack, (el.attack_x, el.attack_y))
 
         text = font.render(str(player.money), 1, pygame.Color('Yellow'))
         screen.blit(text, (WIDTH - 50, 10))
