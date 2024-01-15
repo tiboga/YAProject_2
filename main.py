@@ -1,6 +1,6 @@
 import os
 import sys
-
+import random
 import pygame
 
 FPS = 100
@@ -13,10 +13,11 @@ change = (0, 0)
 direction_of_movement = ''
 
 direction_of_movement_enemy = ''
-direction_of_movement_boss = ''
+direction_of_movement_boss = 'left'
+direction_of_movement_mushroom = ''
 enemy_attack_ready = False
 health = 0  # счётчик ударов. 3удара = -1hp
-
+bullets = 0
 moving = ''
 
 
@@ -57,6 +58,69 @@ class Enemy(pygame.sprite.Sprite):
         self.pos = (x, y)
         self.rect = self.image.get_rect().move(x, y)
 
+    def attack(self):
+        global health
+        global direction_of_movement_enemy
+        global enemy_attack_ready
+        if abs(player.rect[1] - self.rect[1]) <= 4 and (
+                (self.rect[0] - player.rect[0] <= 24 and self.rect[0] > player.rect[0]) or (
+                player.rect[0] - self.rect[0] <= 44 and player.rect[0] > self.rect[0])):
+
+            enemy_attack_ready = True
+        else:
+            if self.rect[0] - player.rect[0] < 250:
+                if self.rect[0] - player.rect[0] >= 24:
+                    if counter % 10 == 0:
+                        self.animate('walk')
+                        self.rect[0] -= 4
+                    enemy_attack_ready = False
+                    direction_of_movement_enemy = ''
+                    if self.rect[1] > player.rect[1]:
+                        if counter % 10 == 0:
+                            self.animate('walk')
+                            self.rect[1] -= 4
+
+                    elif self.rect[1] < player.rect[1]:
+                        if counter % 10 == 0:
+                            self.animate('walk')
+                            self.rect[1] += 4
+
+                else:
+                    if player.rect[0] - self.rect[0] < 250:
+                        if player.rect[0] - self.rect[0] >= 44:
+                            if counter % 10 == 0:
+                                self.animate('walk')
+                                self.rect[0] += 4
+                            direction_of_movement_enemy = 'left'
+                            enemy_attack_ready = False
+                        if self.rect[1] > player.rect[1]:
+                            if counter % 10 == 0:
+                                self.animate('walk')
+                                self.rect[1] -= 4
+
+                        elif self.rect[1] < player.rect[1]:
+                            if counter % 10 == 0:
+                                self.animate('walk')
+                                self.rect[1] += 4
+
+                    else:
+                        if counter % 17 == 0:
+                            self.animate('idle')
+                            enemy_attack_ready = False
+            else:
+                if counter % 17 == 0:
+                    self.animate('idle')
+                    enemy_attack_ready = False
+
+        if enemy_attack_ready:
+            if counter % 20 == 0:
+                enemy.animate('attack')
+                player.animate("damage")
+                health += 1
+                if health == 6:
+                    player.lives -= 1
+                    health = 0
+
     def animate(self, key):
         self.animations[key].update()
         if direction_of_movement_enemy == 'left':
@@ -68,15 +132,15 @@ class Enemy(pygame.sprite.Sprite):
 class Boss(pygame.sprite.Sprite):
     def __init__(self, pos_x, pos_y, animation=None):
         super().__init__(boss_group, tiles_group, all_sprites)
-        self.animations = {'idle': animation[0], 'damage': animation[1], 'die': animation[2]}
+        self.animations = {'idle': animation[0], 'hurt': animation[1], 'die': animation[2]}
         self.image = boss_image
         self.rect = self.image.get_rect().move(
-            tile_width * pos_x, tile_height * pos_y)
-        self.move(pos_x * tile_width, pos_y * tile_height)
-
+            tile_width * pos_x, tile_height * pos_y - 20)
+        self.move(pos_x * tile_width, pos_y * tile_height - 20)
         self.lives = 3
-
+        self.i = 1
         self.pos = (pos_x, pos_y)
+        self.attack_x, self.attack_y = self.rect[0], self.rect[1] + 60
         for elem in self.animations.values():
             elem.pos = self.pos
 
@@ -85,10 +149,73 @@ class Boss(pygame.sprite.Sprite):
         self.rect = self.image.get_rect().move(x, y)
 
     def attack(self):
-        self.image_attack = load_image("Boss_movement/Boss_attack.png")
-        self.rect_attack = self.image.get_rect().move(
-            tile_width * self.pos[0], tile_height * self.pos[1])
-        self.rect_attack[0] -= 4
+        if counter % 20 == 0:
+            boss.animate('idle')
+        self.attack_y = self.rect[1] + 40
+        global bullets
+        if boss.rect[0] - player.rect[0] < 250:
+            if counter % 10 == 0 and bullets == 0:
+                boss_attack.get_rect().move(self.attack_x, self.attack_y)
+                bullets += 1
+            if self.attack_x < 0:
+                self.attack_x = self.rect[0]
+                self.i = 1
+
+        if counter % 10 == 0:
+            self.attack_x = self.rect[0] - (4 * self.i)
+            self.i += 1
+
+        if abs(player.rect[0] - self.attack_x) < 4 and abs(self.attack_y - player.rect[1]) < 50:
+            player.animate('damage')
+            player.lives -= 1
+            self.attack_x = self.rect[0]
+            self.i = 1
+
+    def animate(self, key):
+        self.animations[key].update()
+        if direction_of_movement_boss == 'left':
+            self.image = pygame.transform.flip(self.animations[key].re_img(), 1, 0)
+        else:
+            self.image = self.animations[key].re_img()
+
+
+class Mushroom(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y, animation=None):
+        super().__init__(mushroom_group, tiles_group, all_sprites)
+        self.animations = {'walk': animation[0], 'boom': animation[1]}
+        self.image = mushroom_image
+        self.rect = self.image.get_rect().move(
+            tile_width * pos_x, tile_height * pos_y - 20)
+        self.move(pos_x * tile_width, pos_y * tile_height - 20)
+        self.pos = (pos_x, pos_y)
+        self.lives = 1
+        for elem in self.animations.values():
+            elem.pos = self.pos
+
+    def move(self, x, y):
+        self.pos = (x, y)
+        self.rect = self.image.get_rect().move(x, y)
+
+    def attack(self):
+        global direction_of_movement_mushroom
+        if abs(self.rect[0] - player.rect[0]) < 250:
+            if abs(self.rect[0] - player.rect[0]) <= 24 and abs(self.rect[1] - player.rect[1]) <= 50:
+                if counter % 20 == 0:
+                    player.animate('damage')
+                    player.lives -= 1
+                    self.animate('boom')
+                    self.lives -= 1
+            else:
+                direction_of_movement_mushroom = 'left'
+                if self.rect[0] - player.rect[0] > 24:
+                    if counter % 10 == 0:
+                        self.rect[0] -= 4
+                        self.animate('walk')
+                else:
+                    if self.rect[0] - player.rect[0] < 24:
+                        if counter % 10 == 0:
+                            self.rect[0] += 4
+                            self.animate('walk')
 
     def animate(self, key):
         self.animations[key].update()
@@ -241,7 +368,7 @@ def move(player, movement):
 
 
 def generate_level(level):
-    new_player, new_enemy, new_boss, x, y = None, None, None, None, None
+    new_player, new_enemy, new_boss, new_mushroom, x, y = None, None, None, None, None, None
     for y in range(len(level)):
         for x in range(len(level[y])):
             if level[y][x] == '.':
@@ -254,10 +381,13 @@ def generate_level(level):
             elif level[y][x] == '*':
                 Tile('empty', x, y)
                 new_boss = Boss(x, y, [boss_idle, boss_damage, boss_die])
+            elif level[y][x] == ',':
+                Tile('empty', x, y)
+                new_mushroom = Mushroom(x, y, [mushroom_walk, mushroom_boom])
 
     new_player = Player(WIDTH // 2 - 50, HEIGHT // 2 - 50,
                         [player_idle, player_walk, player_jump, player_attack, player_damage, player_die, player_dead])
-    return new_player, new_enemy, new_boss, WIDTH, HEIGHT
+    return new_player, new_enemy, new_boss, new_mushroom, WIDTH, HEIGHT
 
 
 def terminate():
@@ -276,76 +406,6 @@ def load_level(filename):
     return list(map(lambda x: x.ljust(max_width, '.'), level_map))
 
 
-def enemy_movement_attack():
-    global direction_of_movement_enemy
-    global enemy_attack_ready
-    global health
-
-    if abs(player.rect[1] - enemy.rect[1]) <= 4 and (
-            (enemy.rect[0] - player.rect[0] <= 24 and enemy.rect[0] > player.rect[0]) or (
-            player.rect[0] - enemy.rect[0] <= 44 and player.rect[0] > enemy.rect[0])):
-
-        enemy_attack_ready = True
-    else:
-        if enemy.rect[0] - player.rect[0] < 150:
-            if enemy.rect[0] - player.rect[0] >= 24:
-                if counter % 10 == 0:
-                    enemy.animate('walk')
-                    enemy.rect[0] -= 4
-                enemy_attack_ready = False
-                direction_of_movement_enemy = ''
-                if enemy.rect[1] > player.rect[1]:
-                    if counter % 10 == 0:
-                        enemy.animate('walk')
-                        enemy.rect[1] -= 4
-
-                elif enemy.rect[1] < player.rect[1]:
-                    if counter % 10 == 0:
-                        enemy.animate('walk')
-                        enemy.rect[1] += 4
-
-            else:
-                if player.rect[0] - enemy.rect[0] < 150:
-                    if player.rect[0] - enemy.rect[0] >= 44:
-                        if counter % 10 == 0:
-                            enemy.animate('walk')
-                            enemy.rect[0] += 4
-                        direction_of_movement_enemy = 'left'
-                        enemy_attack_ready = False
-                    if enemy.rect[1] > player.rect[1]:
-                        if counter % 10 == 0:
-                            enemy.animate('walk')
-                            enemy.rect[1] -= 4
-
-                    elif enemy.rect[1] < player.rect[1]:
-                        if counter % 10 == 0:
-                            enemy.animate('walk')
-                            enemy.rect[1] += 4
-
-                else:
-                    if counter % 17 == 0:
-                        enemy.animate('idle')
-                        enemy_attack_ready = False
-        else:
-            if counter % 17 == 0:
-                enemy.animate('idle')
-                enemy_attack_ready = False
-
-    if enemy_attack_ready:
-        if counter % 20 == 0:
-            enemy.animate('attack')
-            player.animate("damage")
-            health += 1
-            if health == 6:
-                player.lives -= 1
-                health = 0
-
-
-def boss_movement_attack():
-    if boss.rect[0] - player.rect[0] < 150:
-        boss.attack()
-
-
 tile_images = {
     'wall': load_image('box.png'),
     'empty': load_image('texture_fon.png')
@@ -356,6 +416,7 @@ player_group = pygame.sprite.Group()
 plat_group = pygame.sprite.Group()
 enemy_group = pygame.sprite.Group()
 boss_group = pygame.sprite.Group()
+mushroom_group = pygame.sprite.Group()
 
 player_idle = AnimatedSprite(load_image('Player_movement/Woodcutter_idle.png'), 4, 1, WIDTH // 2, HEIGHT // 2)
 player_image = player_idle.frames[0]
@@ -371,12 +432,17 @@ enemy_image = enemy_idle.frames[0]
 enemy_flight = AnimatedSprite(load_image("Enemy_movement/Enemy_walk.png"), 4, 1, 0, 0)
 enemy_attack = AnimatedSprite(load_image("Enemy_movement/Enemy_attack.png"), 4, 1, 0, 0)
 enemy_die = AnimatedSprite(load_image("Enemy_movement/Enemy_die.png"), 4, 1, 0, 0)
-enemy_hurt = AnimatedSprite(load_image("Enemy_movement/Enemy_hurt.png"), 2, 1, 0, 0)
+enemy_hurt = AnimatedSprite(load_image("Enemy_movement/Enemy_hurt.png"), 3, 1, 0, 0)
 
 boss_idle = AnimatedSprite(load_image("Boss_movement/Boss_idle.png"), 4, 1, 0, 0)
 boss_image = boss_idle.frames[0]
 boss_damage = AnimatedSprite(load_image("Boss_movement/Boss_hurt.png"), 2, 1, 0, 0)
 boss_die = AnimatedSprite(load_image("Boss_movement/Boss_die.png"), 6, 1, 0, 0)
+boss_attack = load_image("Boss_movement/Boss_shoot_1.png")
+
+mushroom_walk = AnimatedSprite(load_image("mushrooms/mushroom_left.png"), 3, 1, 0, 0)
+mushroom_image = mushroom_walk.frames[0]
+mushroom_boom = AnimatedSprite(load_image("mushrooms/mushroom_boom.png"), 3, 1, 0, 0)
 
 tile_width = tile_height = 50
 
@@ -386,7 +452,7 @@ boss = None  # группы спрайтов
 
 level_map = load_level('map.txt')
 
-player, enemy, boss, level_x, level_y = generate_level(load_level('map.txt'))
+player, enemy, boss, mushroom, level_x, level_y = generate_level(load_level('map.txt'))
 
 
 def start_screen():
@@ -427,25 +493,44 @@ if __name__ == '__main__':
     attack = ''
     counter_atack_anim = 0
     counter_death_anim_enemy = 0
+    counter_death_anim_boss = 0
     reapp = False
 
     while running:
-        if player.lives != 0:
-            if enemy.lives != 0:
-                enemy_movement_attack()
-            else:
-                if counter % 10 == 0 and counter_death_anim_enemy != 3:
-                    enemy.animate('die')
-                    counter_death_anim_enemy += 1
-        else:
-            if counter % 17 == 0:
-                enemy.animate('idle')
-            if counter % 10 == 0 and counter_death_anim != 6:
-                player.animate('die')
-                counter_death_anim += 1
 
-        # if boss.lives != 0:
-        #     boss_movement_attack()
+        if player.lives != 0:
+            for el in mushroom_group:
+                if el.lives > 0:
+                    el.attack()
+            if boss.lives > 0:
+                boss.attack()
+
+            else:
+                if counter % 10 == 0 and counter_death_anim_boss != 5:
+                    boss.animate('die')
+                    counter_death_anim_boss += 1
+
+            for elem in enemy_group:
+                if elem.lives > 0:
+                    elem.attack()
+                else:
+                    if counter % 10 == 0:
+                        if counter_death_anim_enemy != 3:
+                            elem.animate('die')
+                            counter_death_anim_enemy += 1
+
+        else:
+            for elem in enemy_group:
+                if counter % 17 == 0:
+                    elem.animate('idle')
+                if counter % 10 == 0 and counter_death_anim != 5:
+                    player.animate('die')
+
+                    counter_death_anim += 1
+        for elem in enemy_group:
+            if elem.lives == 0 and elem.rect[1] != 0:
+                if counter % 2 == 0:
+                    elem.rect[1] += 4
 
         if change != (0, 0):
             print(change)
@@ -525,11 +610,15 @@ if __name__ == '__main__':
                     player.animate('attack1')
                     attack = '1'
                     counter_atack_anim = 0
+                    for element in enemy_group:
+                        if abs(player.rect[0] - element.rect[0]) <= 44 and abs(
+                                player.rect[1] - element.rect[1]) <= 4 and element.lives > 0:
+                            element.animate('hurt')
+                            element.lives -= 1
 
-                    if abs(player.rect[0] - enemy.rect[0]) <= 44 and abs(player.rect[1] - enemy.rect[1]) <= 4:
-
-                        enemy.animate('hurt')
-                        enemy.lives -= 1
+                    if abs(boss.rect[0] - player.rect[0]) <= 44 and boss.lives > 0:
+                        boss.animate('hurt')
+                        boss.lives -= 1
 
             if event.type == pygame.KEYUP:
                 current_press = ''
@@ -550,6 +639,18 @@ if __name__ == '__main__':
             # if pygame.sprite.spritecollideany(player, plat_group):
             if pygame.sprite.collide_mask(elem, player):
                 reapp = True
+
+            if pygame.sprite.collide_mask(elem, enemy):
+                if player.rect[1] > enemy.rect[1]:
+                    if counter % 10 == 0:
+                        enemy.rect[0] -= 4
+                        enemy.rect[1] += 4
+
+                else:
+                    if counter % 10 == 0:
+                        enemy.rect[0] -= 4
+                        enemy.rect[1] -= 4
+
             if pygame.sprite.collide_mask(elem, player) and counter_atack_anim < 6:
                 pass
         if reapp:
@@ -565,6 +666,11 @@ if __name__ == '__main__':
         player_group.draw(screen)
         enemy_group.draw(screen)
         boss_group.draw(screen)
+        mushroom_group.draw(screen)
         screen.blit(load_image(f"Hearts/Health_{player.lives}.png"), (0, 0))
+
+        if boss.lives > 0:
+            screen.blit(boss_attack, (boss.attack_x, boss.attack_y))
+
         pygame.display.flip()
         clock.tick(100)
