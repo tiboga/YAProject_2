@@ -575,6 +575,7 @@ fon = AnimatedSprite(load_image('fon2.png'), 1, 1, HEIGHT * 2, -300, scaling=(12
                      group=[castle_group, tiles_group])
 player_idle = AnimatedSprite(load_image('Player_movement/Woodcutter_idle.png'), 4, 1, WIDTH // 2, HEIGHT // 2,
                              scaling=(65, 65))
+mushroom_group = pygame.sprite.Group()
 
 player_idle = AnimatedSprite(load_image('Player_movement/Woodcutter_idle.png'), 4, 1, WIDTH // 2, HEIGHT // 2)
 player_image = player_idle.frames[0]
@@ -718,7 +719,7 @@ def end_screen():
 
         if out:
             time.sleep(0.1)
-            return 
+            return
         clock.tick(FPS)
         if counter == 100:
             fon.update()
