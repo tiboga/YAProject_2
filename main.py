@@ -74,56 +74,47 @@ class Enemy(pygame.sprite.Sprite):
         else:
             if self.rect[0] - player.rect[0] < 250:
                 if self.rect[0] - player.rect[0] >= 24:
-                    if counter % 10 == 0:
+                    if counter % 8 == 0:
                         self.animate('walk')
                         self.rect[0] -= 4
                     enemy_attack_ready = False
                     direction_of_movement_enemy = ''
                     if self.rect[1] > player.rect[1]:
-                        if counter % 10 == 0:
+                        if counter % 8 == 0:
                             self.animate('walk')
                             self.rect[1] -= 4
 
                     elif self.rect[1] < player.rect[1]:
-                        if counter % 10 == 0:
+                        if counter % 8 == 0:
                             self.animate('walk')
                             self.rect[1] += 4
 
                 else:
                     if player.rect[0] - self.rect[0] < 250:
                         if player.rect[0] - self.rect[0] >= 44:
-                            if counter % 10 == 0:
+                            if counter % 8 == 0:
                                 self.animate('walk')
                                 self.rect[0] += 4
                             direction_of_movement_enemy = 'left'
                             enemy_attack_ready = False
                         if self.rect[1] > player.rect[1]:
-                            if counter % 10 == 0:
+                            if counter % 8 == 0:
                                 self.animate('walk')
                                 self.rect[1] -= 4
 
                         elif self.rect[1] < player.rect[1]:
-                            if counter % 10 == 0:
+                            if counter % 8 == 0:
                                 self.animate('walk')
                                 self.rect[1] += 4
 
                     else:
-                        if counter % 17 == 0:
+                        if counter % 13 == 0:
                             self.animate('idle')
                             enemy_attack_ready = False
             else:
-                if counter % 17 == 0:
+                if counter % 13 == 0:
                     self.animate('idle')
                     enemy_attack_ready = False
-
-        if enemy_attack_ready:
-            if counter % 20 == 0:
-                enemy.animate('attack')
-                player.animate("damage")
-                health += 1
-                if health == 6:
-                    player.lives -= 1
-                    health = 0
 
     def animate(self, key):
         self.animations[key].update()
@@ -141,7 +132,9 @@ class Boss(pygame.sprite.Sprite):
         self.rect = self.image.get_rect().move(
             tile_width * pos_x, tile_height * pos_y - 20)
         self.move(pos_x * tile_width, pos_y * tile_height - 20)
-        self.lives = 3
+
+        self.live = 3
+
         self.i = 1
         self.pos = (pos_x, pos_y)
         self.attack_x, self.attack_y = self.rect[0], self.rect[1] + 60
@@ -153,23 +146,23 @@ class Boss(pygame.sprite.Sprite):
         self.rect = self.image.get_rect().move(x, y)
 
     def attack(self):
-        if counter % 20 == 0:
-            boss.animate('idle')
+        if counter % 16 == 0:
+            boss_s.animate('idle')
         self.attack_y = self.rect[1] + 40
-        global bullets
-        if boss.rect[0] - player.rect[0] < 250:
-            if counter % 10 == 0 and bullets == 0:
+
+        if boss_s.rect[0] - player.rect[0] < 250:
+            if counter % 16 == 0:
                 boss_attack.get_rect().move(self.attack_x, self.attack_y)
-                bullets += 1
+
             if self.attack_x < 0:
                 self.attack_x = self.rect[0]
                 self.i = 1
 
-        if counter % 10 == 0:
+        if counter % 8 == 0:
             self.attack_x = self.rect[0] - (4 * self.i)
             self.i += 1
 
-        if abs(player.rect[0] - self.attack_x) < 4 and abs(self.attack_y - player.rect[1]) < 50:
+        if abs(player.rect[0] - self.attack_x) < 10 and abs(self.attack_y - player.rect[1]) < 50:
             player.animate('damage')
             player.lives -= 1
             self.attack_x = self.rect[0]
@@ -190,7 +183,7 @@ class Mushroom(pygame.sprite.Sprite):
         self.image = mushroom_image
         self.rect = self.image.get_rect().move(
             tile_width * pos_x, tile_height * pos_y - 20)
-        self.move(pos_x * tile_width, pos_y * tile_height - 20)
+        self.move(pos_x * tile_width, pos_y * tile_height + 20)
         self.pos = (pos_x, pos_y)
         self.lives = 1
         for elem in self.animations.values():
@@ -204,7 +197,7 @@ class Mushroom(pygame.sprite.Sprite):
         global direction_of_movement_mushroom
         if abs(self.rect[0] - player.rect[0]) < 250:
             if abs(self.rect[0] - player.rect[0]) <= 24 and abs(self.rect[1] - player.rect[1]) <= 50:
-                if counter % 20 == 0:
+                if counter % 16 == 0:
                     player.animate('damage')
                     player.lives -= 1
                     self.animate('boom')
@@ -212,12 +205,12 @@ class Mushroom(pygame.sprite.Sprite):
             else:
                 direction_of_movement_mushroom = 'left'
                 if self.rect[0] - player.rect[0] > 24:
-                    if counter % 10 == 0:
+                    if counter % 8 == 0:
                         self.rect[0] -= 4
                         self.animate('walk')
                 else:
                     if self.rect[0] - player.rect[0] < 24:
-                        if counter % 10 == 0:
+                        if counter % 8 == 0:
                             self.rect[0] += 4
                             self.animate('walk')
 
@@ -351,8 +344,24 @@ class Portal(AnimatedSprite):
         self.frames = self.frames[:-1]
 
     def teleport(self):
-        global player, enemy, boss, level_x, level_y
-        player, enemy, boss, level_x, level_y = generate_level(self.level)
+        global player, enemy, boss_s, mushroom, level_x, level_y
+        player, enemy, boss_s, mushroom, level_x, level_y = generate_level(self.level)
+
+    def move(self, x, y):
+        self.pos = (x, y)
+        self.rect = self.image.get_rect().move(x, y)
+
+
+class F_Portal(AnimatedSprite):
+    def __init__(self, level, x, y, sheet, columns, rows, group=all_sprites, need_scale=True, scaling=(75, 75)):
+        super().__init__(sheet, columns, rows, x, y, group, need_scale, scaling)
+        self.level = level
+        self.rect = self.image.get_rect().move(
+            x * tile_width, y * tile_height)
+        self.frames = self.frames[:-1]
+
+    def teleport(self):
+        end_screen()
 
     def move(self, x, y):
         self.pos = (x, y)
@@ -366,10 +375,6 @@ class NPC(AnimatedSprite):
         self.rect = self.image.get_rect().move(
             x * tile_width, y * tile_height)
         self.frames = self.frames[:]
-
-
-class Mushroom:
-    pass
 
 
 class Coins(AnimatedSprite):
@@ -466,14 +471,17 @@ def generate_level(level):
                 new_boss = Boss(x - sdv, y - sdv, [boss_idle, boss_damage, boss_die])
             elif level[y][x] == ',':
                 Tile('empty', x - sdv, y - sdv)
-                new_mushroom = Mushroom(x, y, [mushroom_walk, mushroom_boom])
+                new_mushroom = Mushroom(x - sdv, y - sdv, [mushroom_walk, mushroom_boom])
                 Tile('empty', x - sdv, y - sdv)
-                new_boss = Boss(x - sdv, y - sdv, [boss_idle, boss_damage, boss_die])
+
             elif level[y][x] == 'P':
                 Tile('empty', x - sdv, y - sdv)
                 Portal(level_map_2, x - sdv, y - sdv - 1, load_image('portal.png'), 7, 6,
                        group=[portal_group, tiles_group], scaling=(200, 200))
-
+            elif level[y][x] == 'F':
+                Tile('empty', x - sdv, y - sdv)
+                F_Portal(level_map_2, x - sdv, y - sdv - 1, load_image('Portal_2.png'), 4, 2,
+                         group=[portal_group_2, tiles_group], scaling=(200, 200))
             elif level[y][x] == 'N':
                 Tile('empty', x - sdv, y - sdv)
                 npc = NPC(load_image('npc/Sprites/BLACKSMITH.png'), 7, 1, x - sdv, y - sdv - 0.75,
@@ -507,10 +515,42 @@ def load_level(filename):
     # return list(map(lambda x: x.ljust(max_width, '.'), level_map))
 
 
+class Particle(pygame.sprite.Sprite):
+    # сгенерируем частицы разного размера
+    fire = [load_image("particle.png")]
+    for scale in (2, 3, 4):
+        fire.append(pygame.transform.scale(fire[0], (scale, scale)))
+
+    def __init__(self, pos, dx, dy):
+        super().__init__(all_sprites, particle_group)
+        self.image = random.choice(self.fire)
+        self.rect = self.image.get_rect()
+        self.velocity = [dx, dy]
+        self.rect.x, self.rect.y = pos
+        self.gravity = gravity
+
+    def update(self):
+        self.velocity[1] += self.gravity
+        self.rect.x += self.velocity[0]
+        self.rect.y += self.velocity[1]
+        if self.rect.y > 422:
+            self.kill()
+
+
+def create_particles(position):
+    # количество создаваемых частиц
+    particle_count = 20
+    # возможные скорости
+    numbers = range(-5, 6)
+    for _ in range(particle_count):
+        Particle(position, random.choice(numbers), random.choice(numbers))
+
+
 tile_images = {
     'wall': load_image('box.png'),
     'empty': load_image('texture_fon.png')
 }
+
 fountain_group = pygame.sprite.Group()
 coins_group = pygame.sprite.Group()
 npc_group = pygame.sprite.Group()
@@ -523,14 +563,18 @@ boss_group = pygame.sprite.Group()
 button_group = pygame.sprite.Group()
 cursors_group = pygame.sprite.Group()
 portal_group = pygame.sprite.Group()
+portal_group_2 = pygame.sprite.Group()
+
 technical_sprite_group = pygame.sprite.Group()
 particle_group = pygame.sprite.Group()
 fon_group = pygame.sprite.Group()
 castle_group = pygame.sprite.Group()
-fon = AnimatedSprite(load_image('fon2.png'), 1, 1, HEIGHT * 2, -300, scaling=(1200 * 1.5, 680 * 1.5), group=[castle_group, tiles_group])
+mushroom_group = pygame.sprite.Group()
+
+fon = AnimatedSprite(load_image('fon2.png'), 1, 1, HEIGHT * 2, -300, scaling=(1200 * 1.5, 680 * 1.5),
+                     group=[castle_group, tiles_group])
 player_idle = AnimatedSprite(load_image('Player_movement/Woodcutter_idle.png'), 4, 1, WIDTH // 2, HEIGHT // 2,
                              scaling=(65, 65))
-mushroom_group = pygame.sprite.Group()
 
 player_idle = AnimatedSprite(load_image('Player_movement/Woodcutter_idle.png'), 4, 1, WIDTH // 2, HEIGHT // 2)
 player_image = player_idle.frames[0]
@@ -567,9 +611,9 @@ fountain = AnimatedSprite(load_image('fountain/fountainanim2.png'), 1, 16, HEIGH
                           group=[fountain_group, tiles_group])
 boss_attack = load_image("Boss_movement/Boss_shoot_1.png")
 
-mushroom_walk = AnimatedSprite(load_image("mushrooms/mushroom_left.png"), 3, 1, 0, 0)
+mushroom_walk = AnimatedSprite(load_image("mushrooms/mushroom_left.png"), 3, 1, 0, 0, scaling=(30, 30))
 mushroom_image = mushroom_walk.frames[0]
-mushroom_boom = AnimatedSprite(load_image("mushrooms/mushroom_boom.png"), 3, 1, 0, 0)
+mushroom_boom = AnimatedSprite(load_image("mushrooms/mushroom_boom.png"), 3, 1, 0, 0, scaling=(30, 30))
 
 tile_width = tile_height = 50
 level_map_1 = load_level('map.txt')
@@ -578,7 +622,8 @@ cursor = AnimatedSprite(load_image('cursor1_2.png'), 1, 1, pygame.mouse.get_pos(
                         need_scale=True, scaling=(40, 40), group=cursors_group)
 double_cursor = AnimatedSprite(load_image('double_cursor.png'), 1, 1, pygame.mouse.get_pos()[0],
                                pygame.mouse.get_pos()[1], group=technical_sprite_group, need_scale=False)
-player, enemy, boss, level_x, level_y = generate_level(load_level('map.txt'))
+
+player, enemy, boss_s, mushroom, level_x, level_y = generate_level(load_level('map.txt'))
 
 
 def start_screen():
@@ -612,6 +657,7 @@ def start_screen():
         technical_sprite_group.draw(screen)
         fon_group.draw(screen)
         button_group.draw(screen)
+
         if pygame.mouse.get_pos()[0] > 0 and pygame.mouse.get_pos()[1] > 0 and pygame.mouse.get_pos()[0] < WIDTH - 1 and \
                 pygame.mouse.get_pos()[1] < HEIGHT - 1:
             cursors_group.draw(screen)
@@ -619,10 +665,86 @@ def start_screen():
         if out:
             time.sleep(0.1)
             return
+
         clock.tick(FPS)
         if counter == 100:
             fon.update()
             counter = 0
+
+
+def end_screen():
+    pygame.mouse.set_visible(0)
+    font1 = pygame.font.Font(None, 50)
+    font2 = pygame.font.Font(None, 35)
+    counter = 0
+    out = False
+    while True:
+        counter += 1
+
+        screen.fill((0, 0, 0))
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+            elif event.type == pygame.KEYDOWN or \
+                    event.type == pygame.MOUSEBUTTONDOWN:
+                if pygame.sprite.collide_mask(button_play, double_cursor):
+                    restart_game()
+                    out = True
+
+        cursor.move(pygame.mouse.get_pos()[0] - 6, pygame.mouse.get_pos()[1])
+        double_cursor.move(pygame.mouse.get_pos()[0], pygame.mouse.get_pos()[1])
+        technical_sprite_group.draw(screen)
+        fon_group.draw(screen)
+        button_group.draw(screen)
+
+        line1 = 'Поздравляем! '
+        line2 = 'Вы закончили прохождение!'
+        line3 = f'Время:{timer}'
+        line4 = f'Coins:{player.money}'
+        text1 = font1.render(line1, 1, pygame.Color('Yellow'))
+        text2 = font2.render(line2, 1, pygame.Color('Yellow'))
+        text3 = font.render(line3, 1, pygame.Color('Yellow'))
+        text4 = font.render(line4, 1, pygame.Color('Yellow'))
+
+        screen.blit(text1, (250, 50))
+        screen.blit(text2, (230, 100))
+        screen.blit(text3, (230, 140))
+        screen.blit(text4, (230, 160))
+
+        if pygame.mouse.get_pos()[0] > 0 and pygame.mouse.get_pos()[1] > 0 and pygame.mouse.get_pos()[0] < WIDTH - 1 and \
+                pygame.mouse.get_pos()[1] < HEIGHT - 1:
+            cursors_group.draw(screen)
+        pygame.display.flip()
+
+        if out:
+            time.sleep(0.1)
+            return 
+        clock.tick(FPS)
+        if counter == 100:
+            fon.update()
+            counter = 0
+
+
+def restart_game():
+    global player, enemy, boss_s, mushroom, level_x, level_y
+    global mil, sec, min
+    castle_group.empty()
+    fountain_group.empty()
+    coins_group.empty()
+    back_group.empty()
+    plat_group.empty()
+    portal_group.empty()
+    portal_group_2.empty()
+
+    player_group.empty()
+    enemy_group.empty()
+    boss_group.empty()
+    mushroom_group.empty()
+    npc_group.empty()
+    mil, sec, min = 0, 0, 0
+    player.money = 0
+    player, enemy, boss_s, mushroom, level_x, level_y = generate_level(load_level('map.txt'))
+    start_screen()
 
 
 if __name__ == '__main__':
@@ -639,38 +761,59 @@ if __name__ == '__main__':
     counter_death_anim_boss = 0
     reapp = False
     can_jump = True
+    min, sec, mil = 0, 0, 0
     font = pygame.font.Font(None, 30)
     while running:
+        if counter % 1 == 0:
+            if mil == 60:
+                sec += 1
+                mil = 0
+                if sec == 60:
+                    min += 1
+                    sec = 0
+            mil += 1
 
         if player.lives != 0:
             for el in mushroom_group:
                 if el.lives > 0:
                     el.attack()
-            if boss.lives > 0:
-                boss.attack()
+            for el in boss_group:
+                if el.live > 0:
+                    el.attack()
 
-            else:
-                if counter % 10 == 0 and counter_death_anim_boss != 5:
-                    boss.animate('die')
-                    counter_death_anim_boss += 1
+                else:
+                    if counter % 8 == 0 and counter_death_anim_boss != 5:
+                        el.animate('die')
+                        counter_death_anim_boss += 1
 
             for elem in enemy_group:
                 if elem.lives > 0:
                     elem.attack()
+                    if enemy_attack_ready:
+                        if counter % 16 == 0:
+                            elem.animate('attack')
+                            player.animate("damage")
+                            health += 1
+                            if health == 6:
+                                player.lives -= 1
+                                health = 0
                 else:
-                    if counter % 10 == 0:
+                    if counter % 8 == 0:
                         if counter_death_anim_enemy != 3:
                             elem.animate('die')
                             counter_death_anim_enemy += 1
 
         else:
             for elem in enemy_group:
-                if counter % 17 == 0:
+                if counter % 13 == 0:
                     elem.animate('idle')
                 if counter % 10 == 0 and counter_death_anim != 5:
                     player.animate('die')
-
                     counter_death_anim += 1
+                    already_do = True
+                pygame.time.delay(1000)
+                restart_game()
+
         for elem in enemy_group:
             if elem.lives == 0 and elem.rect[1] != 0:
                 if counter % 2 == 0:
@@ -680,11 +823,11 @@ if __name__ == '__main__':
             print(change)
 
         move(player, 'fall')
-
-        already_do = False
+        if player.lives > 0:
+            already_do = False
         if attack == '1':
             already_do = True
-            if counter % 10 == 0 and counter_atack_anim != 6:
+            if counter % 8 == 0 and counter_atack_anim != 6:
                 player.animate('attack1')
                 counter_atack_anim += 1
             if counter_atack_anim == 6:
@@ -694,22 +837,27 @@ if __name__ == '__main__':
                 if counter % 2 == 0:
                     move(player, 'left')
                     already_do = True
-                    if counter % 5 == 0:
+                    if counter % 3 == 0:
                         player.animate('walk')
             if current_press == 'd':
                 if counter % 2 == 0:
                     move(player, 'right')
                     already_do = True
-                    if counter % 5 == 0:
+                    if counter % 3 == 0:
                         player.animate('walk')
             if current_press == 'j':
-                if counter % 15 == 0:
+                if counter % 11 == 0:
                     player.animate('jump')
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_w:
+                    for elem in portal_group_2:
+                        if pygame.sprite.collide_mask(elem, player):
+                            elem.teleport()
+
                     for elem in portal_group:
                         if pygame.sprite.collide_mask(elem, player):
                             castle_group.empty()
@@ -718,9 +866,11 @@ if __name__ == '__main__':
                             back_group.empty()
                             plat_group.empty()
                             portal_group.empty()
+                            portal_group_2.empty()
                             player_group.empty()
                             enemy_group.empty()
                             boss_group.empty()
+                            mushroom_group.empty()
                             npc_group.empty()
                             elem.teleport()
                 if event.key == pygame.K_s:
@@ -756,10 +906,10 @@ if __name__ == '__main__':
                                 player.rect[1] - element.rect[1]) <= 4 and element.lives > 0:
                             element.animate('hurt')
                             element.lives -= 1
-
-                    if abs(boss.rect[0] - player.rect[0]) <= 44 and boss.lives > 0:
-                        boss.animate('hurt')
-                        boss.lives -= 1
+                    for el in boss_group:
+                        if abs(el.rect[0] - player.rect[0]) <= 44 and el.live > 0:
+                            el.animate('hurt')
+                            el.live -= 1
 
             if event.type == pygame.KEYUP:
                 current_press = ''
@@ -789,7 +939,7 @@ if __name__ == '__main__':
             reapp = False
         camera.dx = 0
         camera.dy = 0
-        if counter % 15 == 0 and (not already_do or counter_atack_anim == 6):
+        if counter % 11 == 0 and (not already_do or counter_atack_anim == 6):
             player.animate('idle')
         screen.fill('black')
 
@@ -798,6 +948,7 @@ if __name__ == '__main__':
         back_group.draw(screen)
         plat_group.draw(screen)
         portal_group.draw(screen)
+        portal_group_2.draw(screen)
         fountain_group.draw(screen)
         npc_group.draw(screen)
         player_group.draw(screen)
@@ -809,17 +960,22 @@ if __name__ == '__main__':
         particle_group.update()
         screen.blit(load_image(f"Hearts/Health_{player.lives}.png"), (0, 0))
 
-        if boss.lives > 0:
-            screen.blit(boss_attack, (boss.attack_x, boss.attack_y))
+        for el in boss_group:
+            if el.live > 0:
+                screen.blit(boss_attack, (el.attack_x, el.attack_y))
 
         text = font.render(str(player.money), 1, pygame.Color('Yellow'))
+        timer = f'{min}:{sec}:{mil}'
+        timerr = font.render(str(timer), True, ('red'))
         screen.blit(text, (WIDTH - 50, 10))
+        screen.blit(timerr, (WIDTH - 125, 10))
         pygame.display.flip()
         if counter % 5 == 0:
             portal_group.update()
+            portal_group_2.update()
         if counter % 10 == 0:
             npc_group.update()
             coins_group.update()
             fountain_group.update()
-        clock.tick(100)
+        clock.tick(60)
         player_pos = player.pos
