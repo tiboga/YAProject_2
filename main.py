@@ -360,6 +360,7 @@ class Portal(AnimatedSprite):
             level_teleport = 1
         else:
             level_teleport = 0
+
     def move(self, x, y):
         self.pos = (x, y)
         self.rect = self.image.get_rect().move(x, y)
@@ -483,7 +484,6 @@ def generate_level(level):
             elif level[y][x] == 'M':
                 Tile('empty', x - sdv, y - sdv)
                 rand = random.choice([10, 15, 20])
-
                 Coins(10, load_image('coins/coin_1_anim.png'), 2, 2, x - sdv, y - sdv + 0.4,
                       group=[all_sprites, tiles_group, coins_group], scaling=(25, 25))
     new_player = Player(player_pos[0], player_pos[1],
@@ -496,8 +496,8 @@ def terminate():
         f.writelines(f"{player.pos[0]} {player.pos[1]}")
     with open('points.txt', 'w') as f:
         f.writelines(str(player.money))
-    end_coint = player.money * 5
-    end_screen([end_coint])
+    end_coint = 'Вы правда хотите выйти?'
+    end_screen([str(end_coint)])
     pygame.quit()
     sys.exit()
 
@@ -622,33 +622,10 @@ player, enemy, boss_s, mushroom, level_x, level_y = generate_level(load_level('m
 
 
 def end_screen(txt=[]):
-    screen.fill('black')
-    fountain_group.empty()
-    coins_group.empty()
-    npc_group.empty()
-    back_group.empty()
-    plat_group.empty()
-    enemy_group.empty()
-    boss_group.empty()
-    cursors_group.empty()
-    technical_sprite_group.empty()
-    particle_group.empty()
-    castle_group.empty()
-    portal_group.empty()
-    player_group.empty()
-    mushroom_group.empty()
-    npc_group.empty()
     pygame.mouse.set_visible(0)
-    intro_text = map(lambda x: str(x), txt)
+    intro_text = txt
     font = pygame.font.Font(None, 70)
-    text_coord = 50
-    for line in intro_text:
-        string_rendered = font.render(f'Результат: {line}', 1, pygame.Color('Yellow'))
-        intro_rect = string_rendered.get_rect()
-        text_coord += 10
-        intro_rect.top = text_coord
-        intro_rect.x = (WIDTH // 2) - intro_rect.width // 2
-        text_coord += intro_rect.height
+    print(intro_text)
     counter = 0
     while True:
         counter += 1
@@ -663,15 +640,26 @@ def end_screen(txt=[]):
                 if pygame.sprite.collide_mask(button_play, double_cursor):
                     button_play.update()
                     out = True
+
+
         cursor.move(pygame.mouse.get_pos()[0] - 6, pygame.mouse.get_pos()[1])
         double_cursor.move(pygame.mouse.get_pos()[0], pygame.mouse.get_pos()[1])
         technical_sprite_group.draw(screen)
         fon_group.draw(screen)
         button_group.draw(screen)
-        if pygame.mouse.get_pos()[0] > 0 and pygame.mouse.get_pos()[1] > 0 and pygame.mouse.get_pos()[0] < WIDTH - 1 and \
+        if pygame.mouse.get_pos()[0] > 0 and pygame.mouse.get_pos()[1] > 0 \
+                and pygame.mouse.get_pos()[0] < WIDTH - 1 and \
                 pygame.mouse.get_pos()[1] < HEIGHT - 1:
             cursors_group.draw(screen)
-        screen.blit(string_rendered, intro_rect)
+        text_coord = 50
+        for line in intro_text:
+            string_rendered = font.render(line, 1, pygame.Color('Yellow'))
+            intro_rect = string_rendered.get_rect()
+            text_coord += 10
+            intro_rect.top = text_coord
+            intro_rect.x = (WIDTH // 2) - intro_rect.width // 2
+            text_coord += intro_rect.height
+            screen.blit(string_rendered, intro_rect)
         pygame.display.flip()
         if out:
             time.sleep(0.1)
@@ -748,9 +736,8 @@ if __name__ == '__main__':
     button_created = False
     button_group.empty()
     while running:
-        if boss_s:
-            if boss_s.live == 0:
-                end_screen()
+        if player.lives == 0:
+            end_screen(['Вы проиграли', f'Результат: {player.money * 10}'])
         if player.lives != 0:
             for el in mushroom_group:
                 if el.lives > 0:
@@ -763,7 +750,7 @@ if __name__ == '__main__':
                     if counter % 10 == 0 and counter_death_anim_boss != 5:
                         el.animate('die')
                         counter_death_anim_boss += 1
-                        need_blackout = True
+
             for elem in enemy_group:
                 if elem.lives > 0:
                     elem.attack()
@@ -785,6 +772,9 @@ if __name__ == '__main__':
             if elem.lives == 0 and elem.rect[1] != 0:
                 if counter % 2 == 0:
                     elem.rect[1] += 4
+
+        if change != (0, 0):
+            print(change)
 
         move(player, 'fall')
         if player.lives > 0:
@@ -912,18 +902,6 @@ if __name__ == '__main__':
         camera.dy = 0
         if counter % 15 == 0 and (not already_do or counter_atack_anim == 6):
             player.animate('idle')
-        if need_blackout:
-            if not button_created:
-                buttom_tmp = AnimatedSprite(load_image('button_Anim_ob.png'), 2, 1, WIDTH // 2, 400,
-                                            group=[all_sprites, button_group], need_scale=False)
-                button_created = True
-            for elem in button_group:
-                elem.rect.x = WIDTH // 2 - elem.rect.x // 2
-                if elem.rect.y > HEIGHT // 2:
-                    elem.rect.y -= 6
-        else:
-            button_created = False
-            button_group.empty()
         screen.fill('black')
         surf.fill('black')
         castle_group.draw(surf)
@@ -950,6 +928,28 @@ if __name__ == '__main__':
         surf.blit(text, (WIDTH - 50, 10))
         screen.blit(surf, (0, 0))
         button_group.draw(screen)
+        if need_blackout:
+            if not button_created:
+                buttom_tmp = AnimatedSprite(load_image('button_ob.png'), 2, 1, WIDTH // 2, 450,
+                                            group=[all_sprites, button_group], need_scale=False)
+                button_created = True
+            for elem in button_group:
+
+                elem.rect.x = WIDTH // 2 - elem.rect.x // 2
+                if elem.rect.y > HEIGHT // 2:
+                    elem.rect.y -= 6
+            font = pygame.font.Font(None, 40)
+            text_coord = buttom_tmp.rect.y
+            string_rendered = font.render('Купить за 50 коинов', 1, pygame.Color('Yellow'))
+            intro_rect = string_rendered.get_rect()
+            text_coord += 10
+            intro_rect.y = text_coord
+            intro_rect.x = WIDTH // 2 - intro_rect.width // 2
+            text_coord += intro_rect.height
+            screen.blit(string_rendered, intro_rect)
+        else:
+            button_created = False
+            button_group.empty()
         pygame.display.flip()
         if counter % 5 == 0:
             portal_group.update()
