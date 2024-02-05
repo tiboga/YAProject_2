@@ -355,7 +355,7 @@ class Portal(AnimatedSprite):
 
     def teleport(self):
         global player, enemy, boss_s, mushroom, level_x, level_y, level_teleport
-        player, enemy, boss_s, mushroom, level_x, level_y = generate_level(self.level)
+        player, enemy, boss_s, mushroom, level_x, level_y = generate_level(levels_sp[level_teleport])
         if level_teleport == 0:
             level_teleport = 1
         else:
@@ -773,9 +773,6 @@ if __name__ == '__main__':
                 if counter % 2 == 0:
                     elem.rect[1] += 4
 
-        if change != (0, 0):
-            print(change)
-
         move(player, 'fall')
         if player.lives > 0:
             already_do = False
@@ -811,7 +808,6 @@ if __name__ == '__main__':
                     for elem in portal_group:
                         if pygame.sprite.collide_mask(elem, player):
                             screen.fill('black')
-                            fountain_group.empty()
                             coins_group.empty()
                             npc_group.empty()
                             back_group.empty()
@@ -821,7 +817,6 @@ if __name__ == '__main__':
                             cursors_group.empty()
                             technical_sprite_group.empty()
                             particle_group.empty()
-                            castle_group.empty()
                             portal_group.empty()
                             player_group.empty()
                             mushroom_group.empty()
